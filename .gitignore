@@ -1,0 +1,17 @@
+*_flymake.*
+.projectile
+.dir-locals.el
+/elpa/
+auto-save-list
+.org-id-locations
+*_archive
+*.elc
+tramp
+bookmarks
+projectile-bookmarks.eld
+transient/
+.last-package-update-day
+custom.el
+ido.last
+**/*\~
+recentf
