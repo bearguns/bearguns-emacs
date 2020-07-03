@@ -5,6 +5,7 @@
 (require 'bg-elpa)
 (bg-require-package 'magit)
 (bg-require-package 'projectile)
+(bg-require-package 'counsel-projectile)
 
 (require 'magit)
 (setq magit-refresh-status-buffer nil)
@@ -16,3 +17,9 @@
 (require 'projectile)
 (projectile-mode 1)
 (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+
+(require 'counsel-projectile)
+(counsel-projectile-mode 1)
+
+(provide 'bg-git)
+;;; bg-git.el ends here.

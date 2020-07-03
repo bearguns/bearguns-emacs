@@ -25,4 +25,6 @@
 (require 'bg-lint)
 
 (require 'bg-git)
+
+(require 'bg-web)
 ;;; init.el ends here.

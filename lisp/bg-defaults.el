@@ -19,3 +19,10 @@
 (setq auto-save-default nil)
 (setq create-lockfiles nil)
 ;; don't pollute the waters with these special files.
+
+(require 'bg-elpa)
+(bg-require-package 'exec-path-from-shell)
+(exec-path-from-shell-initialize)
+
+(provide 'bg-defaults)
+;;; bg-defaults.el ends here
