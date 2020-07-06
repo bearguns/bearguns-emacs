@@ -5,6 +5,9 @@
 (bg-require-package 'ivy)
 (bg-require-package 'counsel)
 (bg-require-package 'company)
+(bg-require-package 'lsp-mode)
+(bg-require-package 'lsp-ui)
+(bg-require-package 'lsp-ivy)
 
 (require 'ivy)
 (setq ivy-use-virtual-buffers t)
@@ -28,4 +31,8 @@
 (setq-default company-tooltip-align-annotations t)
 
 (provide 'bg-complete)
+
+(require 'lsp-mode)
+(add-hook 'go-mode-hook 'lsp-deferred)
+
 ;;; bg-complete.el ends here.

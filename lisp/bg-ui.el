@@ -25,6 +25,9 @@
   (split-window-below)
   (other-window 1))
 
+(global-set-key (kbd "C-x 2") 'bg-split-v)
+(global-set-key (kbd "C-x 3") 'bg-split-h)
+
 (show-paren-mode 1)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
@@ -65,12 +68,12 @@
 (when window-system
   (if (> (x-display-pixel-width) 1080)
       (set-face-attribute 'default nil
-			  :family "Cascadia Code"
+			  :family "Source Code Pro"
 			  :height 130
 			  :weight 'normal
 			  :width 'normal)
     (set-face-attribute 'default nil
-			:family "Cascadia Code"
+			:family "Source Code Pro"
 			:height 110
 			:weight 'normal
 			:width 'normal)))
