@@ -11,7 +11,7 @@
 (evil-mode 1)
 
 (evil-set-leader 'normal (kbd "SPC") nil)
-(evil-define-key 'normal 'global (kbd "<leader>fs") 'save-buffer)
+(evil-define-key 'normal 'global (kbd "<leader>w") 'save-buffer)
 (evil-define-key 'normal 'global (kbd "<leader>h") 'windmove-left)
 (evil-define-key 'normal 'global (kbd "<leader>j") 'windmove-down)
 (evil-define-key 'normal 'global (kbd "<leader>k") 'windmove-up)

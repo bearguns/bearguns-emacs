@@ -14,6 +14,26 @@
 (bg-require-package 'rainbow-delimiters)
 ;; install packages for configuration further down this file.
 
+(setq inhibit-startup-message t
+    inhibit-startup-echo-area-message user-login-name
+    inhibit-default-init t
+    initial-major-mode 'fundamental-mode
+    initial-scratch-message nil)
+
+
+(setq idle-update-delay 1.0)
+
+(setq-default bidi-display-reordering 'left-to-right
+              bidi-paragraph-direction 'left-to-right)
+
+(setq-default cursor-in-non-selected-windows nil)
+(setq highlight-nonselected-windows nil)
+(setq fast-but-imprecise-scrolling t)
+(setq ffap-machine-p-known 'reject)
+
+(setq gcmh-idle-delay 5
+      gcmh-high-cons-threshold (* 16 1024 1024))
+
 (defun bg-split-h ()
   "Split window right"
   (interactive)
@@ -68,13 +88,13 @@
 (when window-system
   (if (> (x-display-pixel-width) 1080)
       (set-face-attribute 'default nil
-			  :family "Source Code Pro"
+			  :family "Iosevka"
 			  :height 130
 			  :weight 'normal
 			  :width 'normal)
     (set-face-attribute 'default nil
-			:family "Source Code Pro"
-			:height 110
+			:family "Iosevka"
+			:height 100
 			:weight 'normal
 			:width 'normal)))
 ;; Set font face and appropriate size based on display size.

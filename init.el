@@ -12,7 +12,7 @@
 (require 'bg-ui)
 ;; Load our UI customizations.
 
-;; (require 'bg-evil)
+(require 'bg-evil)
 ;; Make our Emacs more evil.
 
 (require 'bg-complete)
