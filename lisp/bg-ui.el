@@ -85,19 +85,12 @@
 (setq nyan-animate-nyancat t)
 ;; Nyancat. Bearguns approves.
 
-(when window-system
-  (if (> (x-display-pixel-width) 1080)
-      (set-face-attribute 'default nil
-			  :family "Iosevka"
-			  :height 130
-			  :weight 'normal
-			  :width 'normal)
-    (set-face-attribute 'default nil
-			:family "Iosevka"
-			:height 100
-			:weight 'normal
-			:width 'normal)))
-;; Set font face and appropriate size based on display size.
+(set-face-attribute 'default nil
+			        :family "Iosevka"
+			        :height 100
+			        :weight 'normal
+			        :width 'normal)
+
 
 (require 'all-the-icons)
 (unless (member "all-the-icons" (font-family-list))
