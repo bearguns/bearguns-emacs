@@ -1,6 +1,10 @@
 #+TITLE: Bearguns Emacs
 #+AUTHOR: Sean Brage
 
+#+ATTR_HTML: width="300"
+#+ATTR_ORG: :width 100
+[[./logo.jpg]]
+
 This file represents the most recent attempt to sanitize, standardize,
 and improve my Emacs configuration. Emacs is the tool I use the most
 during my day, both for work and personal reasons. I use Emacs for
