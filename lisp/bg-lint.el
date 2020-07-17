@@ -19,8 +19,8 @@
 (flycheck-add-mode 'javascript-eslint 'js-mode)
 (add-hook 'prog-mode-hook 'flycheck-mode)
 
-(require 'prettier-js)
-(add-hook 'js-mode-hook 'prettier-js-mode)
+;;(require 'prettier-js)
+;;(add-hook 'js-mode-hook 'prettier-js-mode)
 
 (require 'editorconfig)
 (add-hook 'prog-mode-hook 'editorconfig-mode)

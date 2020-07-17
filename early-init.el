@@ -7,3 +7,5 @@
 (push '(vertical-scroll-bars) default-frame-alist)
 
 (setq frame-inhibit-implied-resize t)
+
+(setq tramp-default-remote-shell "/bin/sh")

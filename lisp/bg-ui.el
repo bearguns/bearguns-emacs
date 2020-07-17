@@ -63,9 +63,6 @@
 (setq-default indent-tabs-mode nil)
 ;; Fixes for indentation behaviors when coding
 
-(global-display-line-numbers-mode 1)
-(setq display-line-numbers-type 'relative)
-;; Show line numbers as relative to current line for Evil jumps/motions.
 (global-hl-line-mode 1)
 ;; Highlight current line (useful for quickly finding point).
 
@@ -88,12 +85,12 @@
 (when window-system
   (if (> (x-display-pixel-width) 1080)
       (set-face-attribute 'default nil
-			  :family "Iosevka"
+			  :family "Iosevka Nerd Font"
 			  :height 130
 			  :weight 'normal
 			  :width 'normal)
     (set-face-attribute 'default nil
-			:family "Iosevka"
+			:family "Iosevka Nerd Font"
 			:height 100
 			:weight 'normal
 			:width 'normal)))
