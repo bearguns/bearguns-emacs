@@ -1,10 +1,11 @@
 #+TITLE: Bearguns Emacs
 #+AUTHOR: Sean Brage
 
-[[./logo-sm.jpg]]
 
-This file represents the most recent attempt to sanitize, standardize,
-and improve my Emacs configuration. Emacs is the tool I use the most
+
+[[./logo-sm.jpg]]
+This file represents the most recent attempt to sanitize,
+standardize and improve my Emacs configuration. Emacs is the tool I use the most
 during my day, both for work and personal reasons. I use Emacs for
 everything from programming and system administration, to journaling
 and task management. Over the years, Emacs has become a truly
@@ -162,8 +163,22 @@ way of installing and loading packages:
 #+END_SRC
 
 * The Emacs UI
+** Theming
+Pywal is an awesome utility for generating color schemes from images
+(like your wallpaper). And of course, there's an Emacs package to take
+those same themes and apply them!
 #+BEGIN_SRC emacs-lisp :tangle init.el
-(bg-require-package 'rebecca-theme)
+(bg-require-package 'ewal)
+(setq ewal-use-built-in-always-p nil
+    ewal-use-built-in-on-failure-p t
+    ewal-built-in-palette "sexy-material")
+
+(bg-require-package 'ewal-spacemacs-themes)
+(load-theme 'ewal-spacemacs-modern t)
+(enable-theme 'ewal-spacemacs-modern)
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp :tangle init.el
 (bg-require-package 'nyan-mode)
 (bg-require-package 'all-the-icons)
 (bg-require-package 'spaceline)
