@@ -1,8 +1,6 @@
 #+TITLE: Bearguns Emacs
 #+AUTHOR: Sean Brage
 
-
-
 [[./logo-sm.jpg]]
 This file represents the most recent attempt to sanitize,
 standardize and improve my Emacs configuration. Emacs is the tool I use the most
@@ -40,7 +38,6 @@ a file called =early-init.el=, which is newly-supported as of Emacs
 version 27. =early-init.el= is evaluated -- you guessed it! -- early
 in the Emacs initialization process, so code put here will be run
 /first/. It's the perfect place to do early optimizations.
-
 ** Garbage collection
 The garbage collector in Emacs is a frequent offender as regards
 crimes of slowdown. There are a few popular tweaks we can make to
@@ -162,20 +159,58 @@ way of installing and loading packages:
 ;; helper function to install packages (can be reused!).
 #+END_SRC
 
+* Editor
+** Evil
+Emacs as a text editor has a lot to offer. However, I’ve found that
+the keybindings are difficult for me and at least personally, lead to
+a noticable amount of pinky and arm pain by the end of a long
+programming session. In this regard, I think that the Evil package
+provides a truly great editing experience.
+#+BEGIN_SRC emacs-lisp :tangle init.el
+(setq-default evil-want-C-u-delete t)
+(setq-default evil-want-C-u-scroll t)
+(setq-default evil-want-C-d-scroll t)
+(setq-default evil-respect-visual-line-mode t)
+(setq-default evil-show-paren-range 1)
+(setq-default evil-escape-key-sequence "jk")
+(bg-require-package 'evil)
+(bg-require-package 'evil-leader)
+(bg-require-package 'evil-escape)
+
+(evil-mode 1)
+
+;; Undotree is poop and crashes Emacs every time I try to use it
+(global-undo-tree-mode -1)
+(global-evil-leader-mode)
+(evil-escape-mode 1)
+
+(evil-leader/set-leader "<SPC>")
+(evil-leader/set-key
+  "wo" 'other-window
+  "w0" 'delete-window
+  "w1" 'delete-other-windows
+  "w2" 'bg-split-v
+  "w3" 'bg-split-h)
+  
+  
+(evil-leader/set-key "fs" 'save-buffer)
+(global-display-line-numbers-mode)
+(setq-default display-line-numbers 'relative)
+#+END_SRC
+
+** Snippets
+YASnippet provides a way to quickly and easily expand abbreviations
+into full snippets of text, code, etc. All with easy movement between
+predefined locations within the expanded snippet!
+#+BEGIN_SRC emacs-lisp :tangle init.el
+(bg-require-package 'yasnippet)
+(yas-global-mode)
+#+END_SRC
 * The Emacs UI
 ** Theming
-Pywal is an awesome utility for generating color schemes from images
-(like your wallpaper). And of course, there's an Emacs package to take
-those same themes and apply them!
 #+BEGIN_SRC emacs-lisp :tangle init.el
-(bg-require-package 'ewal)
-(setq ewal-use-built-in-always-p nil
-    ewal-use-built-in-on-failure-p t
-    ewal-built-in-palette "sexy-material")
-
-(bg-require-package 'ewal-spacemacs-themes)
-(load-theme 'ewal-spacemacs-modern t)
-(enable-theme 'ewal-spacemacs-modern)
+(bg-require-package 'gruvbox-theme)
+(load-theme 'gruvbox t)
 #+END_SRC
 
 #+BEGIN_SRC emacs-lisp :tangle init.el
@@ -184,6 +219,7 @@ those same themes and apply them!
 (bg-require-package 'spaceline)
 (bg-require-package 'neotree)
 (bg-require-package 'rainbow-delimiters)
+(bg-require-package 'rainbow-mode)
 ;; install packages for configuration further down this file.
 
 (setq inhibit-startup-message t
@@ -231,7 +267,7 @@ those same themes and apply them!
 
 (add-hook 'prog-mode-hook 'electric-indent-mode)
 (setq-default tab-always-indent 'complete)
-(setq-default tab-width 4)
+(setq-default tab-width 2)
 (setq-default indent-tabs-mode nil)
 ;; Fixes for indentation behaviors when coding
 
@@ -246,30 +282,9 @@ those same themes and apply them!
 (setq ring-bell-function 'ignore)
 ;; LEAVE ME ALONE EMACS I GET IT I MADE A MISTAKE.
 
-(load-theme 'rebecca t)
-;; Load our colorscheme of choice and set as "safe" for future sessions.
-
 (nyan-mode 1)
 (setq nyan-animate-nyancat t)
 ;; Nyancat. Bearguns approves.
-
-(when window-system
-  (if (> (x-display-pixel-width) 1080)
-      (set-face-attribute 'default nil
-			  :family "Iosevka Nerd Font"
-			  :height 130
-			  :weight 'normal
-			  :width 'normal)
-    (set-face-attribute 'default nil
-			:family "Iosevka Nerd Font"
-			:height 100
-			:weight 'normal
-			:width 'normal)))
-;; Set font face and appropriate size based on display size.
-
-(unless (member "all-the-icons" (font-family-list))
-  (all-the-icons-install-fonts t))
-;; Install...well, all of the icons.
 
 (spaceline-emacs-theme)
 ;; Pretty modelines can actually be HELPFUL, not just eye candy.
@@ -278,6 +293,31 @@ those same themes and apply them!
 ;; Add a safety net tree browser.
 
 (add-hook 'prog-mode-hook 'rainbow-delimiters-mode)
+(add-hook 'prog-mode-hook 'rainbow-mode)
+#+END_SRC
+
+** Font Settings
+I work half my time on a laptop screen, and the other half connected
+to a big 4k display. It’s helpful to set the font size accordingly
+when I start Emacs.
+#+BEGIN_SRC emacs-lisp :tangle init.el
+(when window-system
+  (if (> (x-display-pixel-width) 1080)
+      (set-face-attribute 'default nil
+			  :family "UbuntuMono Nerd Font"
+			  :height 180
+			  :weight 'normal
+			  :width 'normal)
+    (set-face-attribute 'default nil
+			:family "UbuntuMono Nerd Font"
+			:height 110
+			:weight 'normal
+			:width 'normal)))
+;; Set font face and appropriate size based on display size.
+
+(unless (member "all-the-icons" (font-family-list))
+  (all-the-icons-install-fonts t))
+;; Install...well, all of the icons.
 #+END_SRC
 
 * $PATH
@@ -394,6 +434,9 @@ platform.
 
 * Web Development
 ** TODO add documentation for this section
+#+BEGIN_SRC emacs-lisp
+(bg-require-package )
+#+END_SRC
 #+BEGIN_SRC emacs-lisp :tangle init.el
 (bg-require-package 'web-mode)
 (bg-require-package 'emmet-mode)
@@ -405,6 +448,16 @@ platform.
 (add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
 
 (add-hook 'web-mode-hook 'emmet-mode)
+(add-hook 'web-mode-hook 'bg-vue-mode)
+(defun bg-vue-mode ()   
+    (when (and (stringp buffer-file-name)   
+           (string-match "\\.vue\\'" buffer-file-name))
+
+           (setq web-mode-script-padding 0)
+           (setq web-mode-style-padding 0)
+           (setq web-mode-markup-indent-offset 2)
+           (setq web-mode-css-indent-offset 2)
+           (setq web-mode-code-indent-offset 2)))
 
 (add-to-list 'auto-mode-alist '("\\.scss\\'" . scss-mode))
 (add-to-list 'auto-mode-alist '("\\.sass\\'" . scss-mode))
@@ -433,7 +486,6 @@ platform.
 
 (add-to-list 'auto-mode-alist '("\\.jsx\\'") 'emmet-mode)
 #+END_SRC
-
 * Writing & markup languages
 ** TODO add documentation for this section
 #+BEGIN_SRC emacs-lisp :tangle init.el
