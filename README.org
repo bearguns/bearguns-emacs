@@ -160,6 +160,17 @@ way of installing and loading packages:
 #+END_SRC
 
 * Editor
+** Editor Defaults
+#+BEGIN_SRC emacs-lisp :tangle init.el
+(defun bg-line-numbers-mode ()
+  "Enable line numbers in programming modes"
+  (display-line-numbers-mode 1)
+  (setq display-line-numbers 'relative))
+
+(add-hook 'prog-mode-hook 'bg-line-numbers-mode)
+(add-hook 'conf-mode-hook 'bg-line-numbers-mode)
+#+END_SRC
+
 ** Evil
 Emacs as a text editor has a lot to offer. However, I’ve found that
 the keybindings are difficult for me and at least personally, lead to
@@ -194,8 +205,6 @@ provides a truly great editing experience.
   
   
 (evil-leader/set-key "fs" 'save-buffer)
-(global-display-line-numbers-mode)
-(setq-default display-line-numbers 'relative)
 #+END_SRC
 
 ** Snippets
@@ -302,15 +311,15 @@ to a big 4k display. It’s helpful to set the font size accordingly
 when I start Emacs.
 #+BEGIN_SRC emacs-lisp :tangle init.el
 (when window-system
-  (if (> (x-display-pixel-width) 1080)
+  (if (> (x-display-pixel-width) 1440)
       (set-face-attribute 'default nil
 			  :family "UbuntuMono Nerd Font"
-			  :height 180
+			  :height 160
 			  :weight 'normal
 			  :width 'normal)
     (set-face-attribute 'default nil
 			:family "UbuntuMono Nerd Font"
-			:height 110
+			:height 130
 			:weight 'normal
 			:width 'normal)))
 ;; Set font face and appropriate size based on display size.
