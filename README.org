@@ -216,10 +216,17 @@ predefined locations within the expanded snippet!
 (yas-global-mode)
 #+END_SRC
 * The Emacs UI
-** Theming
+** TODO Theming
+   Emacs can be themed in a number of ways, the most basic being
+   applying a color scheme. While themes can be installed from
+   ELPA/MELPA, they can also be loaded from a custom themes directly
+   (for hand-rolled themes etc.).
+
 #+BEGIN_SRC emacs-lisp :tangle init.el
-(bg-require-package 'gruvbox-theme)
-(load-theme 'gruvbox t)
+(add-to-list 'custom-theme-load-path "~/.emacs.d/themes")
+(bg-require-package 'night-owl-theme)
+(load-theme 'night-owl t)
+;;(load-theme 'misterioso)
 #+END_SRC
 
 #+BEGIN_SRC emacs-lisp :tangle init.el
@@ -279,9 +286,6 @@ predefined locations within the expanded snippet!
 (setq-default tab-width 2)
 (setq-default indent-tabs-mode nil)
 ;; Fixes for indentation behaviors when coding
-
-(global-hl-line-mode 1)
-;; Highlight current line (useful for quickly finding point).
 
 (blink-cursor-mode 0)
 (setq-default cursor-type 'box)
