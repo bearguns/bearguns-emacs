@@ -17,3 +17,5 @@ ido.last
 recentf
 backup/
 session.*
+.cache
+.lsp-session-v1

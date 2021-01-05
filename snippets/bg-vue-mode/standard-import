@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: vue js import statement
+# key: iimp
+# --
+import $1 from "$2";$0

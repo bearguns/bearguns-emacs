@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: jsdoc object property
+# key: jdprop
+# --
+* @property {$1} $2 - $3$0
