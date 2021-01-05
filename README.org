@@ -370,12 +370,12 @@ when I start Emacs.
 (when window-system
   (if (> (x-display-pixel-width) 2560)
       (set-face-attribute 'default nil
-			  :family "JetBrains Mono"
+			  :family "UbuntuMono Nerd Font Mono"
 			  :height 160
 			  :weight 'normal
 			  :width 'normal)
     (set-face-attribute 'default nil
-			:family "JetBrains Mono"
+			:family "UbuntuMono Nerd Font Mono"
 			:height 130
 			:weight 'normal
 			:width 'normal)))
