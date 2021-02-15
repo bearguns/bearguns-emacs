@@ -62,21 +62,20 @@
     :config (global-set-key (kbd "C-;") 'er/expand-region))
 
 ;; EVIL - uncomment if you want Vim-keysystem
-;;(use-package evil
-;;    :config
-;;    (global-display-line-numbers-mode)
-;;    (setq display-line-numbers 'relative)
-;;    (setq-default evil-want-C-u-delete t)
-;;    (setq-default evil-want-C-u-scroll t)
-;;    (setq-default evil-want-C-d-scroll t)
-;;    (setq-default evil-respect-visual-line-mode t)
-;;    (setq-default evil-show-paren-range 1)
-;;    (evil-mode 1))
-;;
-;;(use-package evil-escape
-;;  :config
-;;  (setq-default evil-escape-key-sequence "jk")
-;;  (evil-escape-mode 1))
+(use-package evil
+   :config
+   (global-display-line-numbers-mode)
+   (setq-default evil-want-C-u-delete t)
+   (setq-default evil-want-C-u-scroll t)
+   (setq-default evil-want-C-d-scroll t)
+   (setq-default evil-respect-visual-line-mode t)
+   (setq-default evil-show-paren-range 1)
+   (evil-mode 1))
+
+(use-package evil-escape
+ :config
+ (setq-default evil-escape-key-sequence "jk")
+ (evil-escape-mode 1))
 ;;
 ;;(use-package evil-leader
 ;;  :config
@@ -121,8 +120,14 @@
     initial-scratch-message nil)
 ;; get rid of all the stuff on startup
 
-(use-package doom-themes
-    :config (load-theme 'doom-gruvbox t))
+(use-package base16-theme
+    :config
+    (load-theme 'base16-oceanicnext t))
+;; (use-package doom-themes
+;;     :config
+;;     (setq doom-themes-enable-bold nil)
+;;     (setq doom-themes-enable-italic nil)
+;;     (load-theme 'doom-Iosvkem t))
 ;; nice collection of color themes
 
 (use-package doom-modeline
@@ -214,6 +219,13 @@
     (setq-default flycheck-highlighting-mode 'lines))
 ;; check syntax!
 
+;; (use-package lsp-mode
+;;     :hook(bg-vue-mode . lsp))
+
+(use-package eglot
+    :config
+    (add-to-list 'eglot-server-programs '(bg-vue-mode . ("vls"))))
+
 (use-package company
     :hook ((prog-mode . company-mode)
               (conf-mode . company-mode)
@@ -224,9 +236,6 @@
     (setq-default company-tooltip-align-annotations t)
     :config
     (setq company-dabbrev-downcase nil))
-
-(use-package company-box
-    :hook (company-mode . company-box-mode))
 ;; awesome auto-completion
 
 (use-package ivy
@@ -245,25 +254,25 @@
     (counsel-mode 1))
 ;; find stuff!
 
-(use-package projectile
-    :config
-    (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
-    (projectile-mode 1))
+;; (use-package projectile
+;;     :config
+;;     (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+;;     (projectile-mode 1))
 
-(use-package counsel-projectile
-    :config (counsel-projectile-mode 1))
+;; (use-package counsel-projectile
+;;     :config (counsel-projectile-mode 1))
 ;; work with git projects like a pro!
 
 (use-package magit
     :config
     (setq magit-refresh-status-buffer nil)
-    (setq vc-handled-backends nil)
     (global-set-key (kbd "C-x g") 'magit))
 ;; oh baby. git has never been this fun to use.
 
 (defun bg-vue-mode-setup ()
     (superword-mode)
     (subword-mode)
+    (eglot)
     (setq web-mode-script-padding 0)
     (setq web-mode-style-padding 0)
     (setq web-mode-markup-indent-offset 2)
@@ -297,6 +306,24 @@
 
 (use-package go-mode
     :mode "\\.go\\'")
+
+(use-package tide
+    :config
+    (defun setup-tide-mode ()
+        (interactive)
+        (tide-setup)
+        (flycheck-mode +1)
+        (setq flycheck-check-syntax-automatically '(save mode-enabled))
+        (eldoc-mode +1)
+        (tide-hl-identifier-mode +1)
+        ;; company is an optional dependency. You have to
+        ;; install it separately via package-install
+        ;; `M-x package-install [ret] company`
+        (company-mode +1))
+    ;; aligns annotation to the right hand side
+    (setq company-tooltip-align-annotations t)
+    ;; formats the buffer before saving
+    (add-hook 'typescript-mode-hook #'setup-tide-mode))
 ;;;;;;;;;;;;;;;; ORG MODE ;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -315,3 +342,18 @@
 (use-package markdown-mode
     :mode (("\\.markdown\\'" . markdown-mode)
               ("\\.md\\'" . markdown-mode)))
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+    '(custom-safe-themes
+         '("5a7830712d709a4fc128a7998b7fa963f37e960fd2e8aa75c76f692b36e6cf3c" default))
+    '(package-selected-packages
+         '(base16-theme modus-themes tide yasnippet yaml-mode web-mode use-package scss-mode rainbow-mode rainbow-delimiters prettier org-pomodoro org-journal neotree markdown-mode magit json-mode go-mode flycheck expand-region exec-path-from-shell evil-leader evil-escape emmet-mode eglot editorconfig doom-themes doom-modeline dashboard counsel-projectile company-box add-node-modules-path)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
