@@ -1,151 +1,280 @@
-;;; init.el --- bearguns Emacs config rerevisited
-;;; Commentary:
-;; Emacs 27+ is pretty fast, so I'm not too concerned about startup times.  Mainly,
-;; I'm concerned with an Emacs I can live in for most of my workday and get things done.
+;; According to smart people, `file-name-handler-alist` is
+;; consulted a LOT during the Emacs lifecycle. We can adjust this to improve
+;; startup times.
+(unless (daemonp)
+  (defvar bg--initial-file-name-handler-alist file-name-handler-alist)
+  (setq file-name-handler-alist nil)
+  ;; helper to restore the original alist once we are done
+  (defun bg-reset-file-handler-alist-h ()
+  (dolist (handler file-name-handler-alist)
+    (add-to-list 'bg--initial-file-name-handler-alist handler))
+  (setq file-namde-handler-alist bg--initial-file-name-handler-alist))
+  (add-hook 'emacs-startup-hook #'bg-reset-file-handler-alist-h)
+  (add-hook 'after-init-hook '(lambda ()
+    ;; restore original GC settings
+    (setq gc-cons-threshold 16777216
+          gc-cons-percentage 0.1)))
+)
+;; Set our working directory here
+(setq user-emacs-directory (file-truename (file-name-directory load-file-name)))
 
-;;; Code:
-;;;;;;;;;;;;;;;;; PACKAGE MANAGER ;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; require the built-in "package" package
-(require 'package)
-;; enable package repositories for installing packages
-(setq package-archives
-    '(("org" . "https://orgmode.org/elpa/")
-         ("gnu" . "https://elpa.gnu.org/packages/")
-         ("melpa" . "https://melpa.org/packages/")))
-(package-initialize)
+(setq straight-check-for-modifications '(check-on-save find-when-checking))
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
 
-;; update package list on fresh install
-(unless package-archive-contents
-    (package-refresh-contents))
-;; Install the use-package package manager
-(unless (package-installed-p 'use-package)
-    (package-install 'use-package))
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
 
-(setq-default use-package-always-ensure t)
+(setq use-package-compute-statistics t)
 
-;;;;;;;;;;;;;;;; DEFAULTS ;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(setq auto-save-default nil)
-(setq create-lockfiles nil)
-(setq make-backup-files nil)
-;; Emacs creates a lot of "helpful" files (backups, autosaves, lockfiles)
-;; I don't want any of them.
+(use-package emacs
+  :init
+  (setq inhibit-startup-screen t
+        initial-scratch-message nil
+        sentence-end-double-space nil
+        ring-bell-function 'ignore
+        frame-resize-pixelwise t)
+  (setq user-full-name "Sean Brage"
+        user-mail-address "seanmbrage@me.com")
+        
+  (setq read-process-output-max (* 1024 1024))
+  
+  ;; utf-8 please and thanks
+  (set-charset-priority 'unicode)
+  (setq locale-coding-system 'utf-8
+        coding-system-for-read 'utf-8
+        coding-system-for-write 'utf-8)
+  (set-terminal-coding-system 'utf-8)
+  (set-keyboard-coding-system 'utf-8)
+  (set-selection-coding-system 'utf-8)
+  (prefer-coding-system 'utf-8)
+  (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
+
+  ;; Recent files -- yay!
+  (recentf-mode t)
+  (setq recentf-exclude `(,(expand-file-name "straight/build/" user-emacs-directory)
+                          ,(expand-file-name "eln-cache/" user-emacs-directory)
+                          ,(expand-file-name "etc/" user-emacs-directory)
+                          ,(expand-file-name "var/")))
+
+  ;; Don't keep a custom file, this just messes things up especially with VC
+  (setq custom-file (make-temp-file ""))
+  (setq custom-safe-themes t)
+  (setq enable-local-variables :all)
+
+  ;; No backup files!
+  (setq make-backup-files nil
+        auto-save-default nil
+        create-lockfiles nil)
+
+  ;; follow symlinks
+  (setq vc-follow-symlinks t)
+
+  ;; clean UI
+  (when (window-system)
+    (tool-bar-mode -1)
+    (toggle-scroll-bar -1))
+    
+  ;; winner mode for window layout management (YES)
+  (winner-mode t)
+
+  ;; highlight matching parens
+  (show-paren-mode t)
+
+  ;; autopairs
+  (electric-pair-mode +1)
+
+  ;; sshh
+  (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
+  
+  ;; cleanup modeline
+  (display-time-mode -1)
+  (setq column-number-mode t)
+  
+  ;; do some indentation normalization
+  (setq-default tab-width 2)
+  (setq-default indent-tabs-mode nil)
+  (setq-default tab-always-indent 'complete)
+  (electric-indent-mode 1)
+  
+  (global-display-line-numbers-mode 1)
+  (add-hook 'prog-mode-hook (lambda () 
+    (setq display-line-numbers-type 'relative)))
+
+  (add-hook 'org-mode-hook (lambda ()
+    (setq display-line-numbers-type 'relative)))
+
+  (if (> (display-pixel-width) 2560)
+    (set-frame-font "JetBrains Mono-14")
+    (set-frame-font "JetBrains Mono-11"))
+)
+
+(use-package emacs
+  :init
+  (when (eq system-type 'darwin)
+    (setq mac-command-modifier 'super)
+    (setq mac-option-modifier 'meta)
+    (setq mac-control-modifier 'control)
+    (global-set-key [(s c)] 'kill-ring-save)
+    (global-set-key [(s v)] 'yank)
+    (global-set-key [(s x)] 'kill-region)
+    (global-set-key [(s q)] 'kill-emacs)))
 
 (use-package exec-path-from-shell
-    :config (exec-path-from-shell-initialize))
-;; make sure Emacs sees tools in our $PATH like grep, rg, etc.
+  :if (memq window-system '(mac ns))
+  :hook (emacs-startup . (lambda ()
+                           (setq exec-path-from-shell-arguments '("-l"))
+                           (exec-path-from-shell-initialize))))
 
-;;;;;;;;;;;;;;;; EDITING ;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; When using tramp to login to remote filesystems, make sure we use that system's shell instead of our own fish shell.
-(setq-default tramp-default-remote-shell "/bin/sh")
+(use-package emacs
+  :init
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+  (add-to-list 'default-frame-alist '(ns-appearance . dark))
+  (setq ns-use-proxy-icon  nil)
+  (setq frame-title-format nil)
+)
 
-(electric-pair-mode 1)
-;; Auto-close delimiters like (,",{,etc.
+(use-package general
+  :demand t
+  :config 
+  (general-evil-setup)
+  
+  (general-create-definer bg/leader-keys
+    :states '(normal insert visual emacs)
+    :keymaps 'override
+    :prefix "SPC"
+    :global-prefix "C-SPC")
 
-(add-hook 'prog-mode-hook 'electric-indent-mode)
-(setq-default tab-always-indent 'complete)
-(setq-default tab-width 2)
-(setq-default indent-tabs-mode nil)
-;; Fixes for indentation behaviors when coding
+  (general-create-definer bg/local-leader-keys
+    :states '(normal visual)
+    :keymaps 'override
+    :prefix ","
+    :global-prefix "SPC m")
 
-(show-paren-mode 1)
-;; highlight matching parens and brackets
+  (bg/leader-keys
+    "SPC" '(execute-extended-command :which-key "execute command")
+    "b" '(:ignore t :which-key "buffer")
+    "bb" 'ibuffer
+    "br" 'revert-buffer
+    "bd" 'kill-current-buffer
+    "bn" 'next-buffer
+    "bp" 'previous-buffer
 
-(use-package yasnippet
-    :bind (("C-," . yas-expand))
-    :config (yas-global-mode))
-;; snippets for expanding common code blocks etc.
+    "c" '(:ignore t :which-key "code")
+    "d" '(:ignore t :whick-key "dired")
+    "dd" 'dired
+    "f" '(:ignore t :which-key "file")
+    "ff" 'find-file
+    "fs" 'save-buffer
+    "fr" 'recentf-open-files
+    
+    "p" '(:ignore t :which-key "project")
+    "pp" 'project-switch-project
+    "pf" 'project-find-file
+    "pg" 'project-find-regexp
+    
+    "w" '(:ignore t :whick-key "window")
+    "wl" 'windmove-right
+    "wh" 'windmove-left
+    "wj" 'windmove-down
+    "wk" 'windmove-up
+    "wr" 'winner-redo
+    "wd" 'delete-window
+    "w3" 'split-window-right
+    "w2" 'split-window-below
+    "w=" 'balance-windows-area
+    "wD" 'kill-buffer-and-window
+    "wu" 'winner-undo
+    "wr" 'winner-redo
+    "wm" '(delete-other-windows :wk "maximize")
 
-(use-package expand-region
-    :config (global-set-key (kbd "C-;") 'er/expand-region))
+    "l" '(:ignore t :which-key "lsp")
+    "gd" 'lsp-goto-type-definition
+    "gi" 'lsp-goto-implementation))
 
-;; EVIL - uncomment if you want Vim-keysystem
 (use-package evil
-   :config
-   (global-display-line-numbers-mode)
-   (setq-default evil-want-C-u-delete t)
-   (setq-default evil-want-C-u-scroll t)
-   (setq-default evil-want-C-d-scroll t)
-   (setq-default evil-respect-visual-line-mode t)
-   (setq-default evil-show-paren-range 1)
-   (evil-mode 1))
-
-(use-package evil-escape
- :config
- (setq-default evil-escape-key-sequence "jk")
- (evil-escape-mode 1))
-;;
-;;(use-package evil-leader
-;;  :config
-;;  (evil-leader/set-leader "<SPC>")
-;;  (evil-leader/set-key
-;;   "w" 'save-buffer
-;;   "q" 'delete-window
-;;   "1" 'delete-other-windows
-;;   "2" 'bg-split-v
-;;   "3" 'bg-split-h
-;;   "h" 'windmove-left
-;;   "j" 'windmove-down
-;;   "k" 'windmove-up
-;;   "l" 'windmove-right)
-;;   (global-evil-leader-mode))
-
-;;;;;;;;;;;;;;;; UI ;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(menu-bar-mode -1)
-(tool-bar-mode -1)
-(scroll-bar-mode -1)
-;; Hide the default UI chrome.
-
-(setq ring-bell-function 'ignore)
-;; LEAVE ME ALONE EMACS I GET IT I MADE A MISTAKE.
-
-(setq-default cursor-type 'box)
-;; Improve cursor visibility in buffers.
-(setq-default cursor-in-non-selected-windows nil)
-;; Don't show the cursor in "other" windows, makes it easier to find active window.
-(blink-cursor-mode 0)
-;; Don't blink the cursor. Makes it easier to find in windows.
-(setq highlight-nonselected-windows nil)
-;; don't highlight nonselected windows for visual clarity
-(setq scroll-conservatively 25)
-;; Scroll line-by-line when point reaches bottom of buffer, rather than scrolling by "page"
-
-(setq inhibit-startup-message t
-    inhibit-startup-echo-area-message user-login-name
-    inhibit-default-init t
-    initial-major-mode 'fundamental-mode
-    initial-scratch-message nil)
-;; get rid of all the stuff on startup
-
-(use-package base16-theme
+    :demand
+    :general
+    (lc/leader-keys
+      "wv" 'evil-window-vsplit
+      "ws" 'evil-window-split)
+    :init
+    (setq evil-want-C-u-scroll t)
+    (setq evil-want-C-i-jump nil)
+    (setq evil-respect-visual-line-mode t)
+    (setq evil-undo-system 'undo-fu)
+    (setq evil-split-window-below t)
+    (setq evil-vsplit-window-right t)
     :config
-    (load-theme 'base16-oceanicnext t))
-;; (use-package doom-themes
-;;     :config
-;;     (setq doom-themes-enable-bold nil)
-;;     (setq doom-themes-enable-italic nil)
-;;     (load-theme 'doom-Iosvkem t))
-;; nice collection of color themes
+    (setq-default display-line-numbers 'relative)
+    (evil-mode 1))
+
+  (use-package evil-escape
+    :demand
+    :init (setq-default evil-escape-key-sequence "jk")
+    :config (evil-escape-mode 1))
+  
+;; (use-package evil-collection
+;;   :after evil
+;;   :demand
+;;   :init (setq evil-collection-magit-use-z-for-folds nil)
+;;   :config (evil-collection-init))
+
+  (use-package evil-goggles
+    :after evil
+    :demand
+    :init (setq evil-goggles-duration 0.05)
+    :config
+    (push '(evil-operator-eval
+            :face evil-goggles-yank-face
+            :switch evil-goggles-enable-yank
+            :advice evil-goggles--generic-async-advice)
+            evil-goggles--commands)
+    (evil-goggles-mode)
+    (evil-goggles-use-diff-faces))
+
+  (use-package evil-surround
+    :general
+    (:states 'operator
+      "s" 'evil-surround-edit
+      "S" 'evil-Surround-edit)
+    (:states 'visual
+      "S" 'evil-surround-region
+      "gS" 'evil-Surround-region))
+
+(use-package which-key
+  :demand t
+  :init
+  (setq which-key-separator " ")
+  (setq which-key-prefix-prefix "+")
+  :config (which-key-mode))
+
+;; (use-package modus-themes
+;;   :demand
+;;   :init (modus-themes-load-themes)
+;;   :config (modus-themes-load-vivendi))
+
+(use-package dracula-theme
+  :demand
+  :config (load-theme 'dracula t))
 
 (use-package doom-modeline
-    :init (doom-modeline-mode 1))
-
-(use-package dashboard
-    :ensure t
-    :init
-    (setq dashboard-center-content t)
-    (setq dashboard-items '((recents . 5)
-                               (projects . 5)
-                               (bookmarks . 5)))
-    (setq dashboard-set-heading-icons t)
-    (setq dashboard-set-file-icons t)
-    (setq-default dashboard-startup-banner "~/.emacs.d/logo-sm.png")
-    :config
-    (dashboard-setup-startup-hook))
-;; nice startup dashboard with recents, bookmarks, etc.
+  :demand
+  :init
+  (setq doom-modeline-height 30)
+  (setq doom-modeline-icon (display-graphic-p))
+  (setq doom-modeline-major-mode-icon t)
+  (doom-modeline-mode 1))
 
 (use-package all-the-icons)
 ;; it's all the icons
@@ -153,16 +282,6 @@
 (unless (member "all-the-icons" (font-family-list))
     (all-the-icons-install-fonts t))
 ;; Install...well, all of the fonts for all-the-icons
-
-(use-package neotree
-    :init
-    (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
-    (global-set-key (kbd "C-c t") 'neotree-toggle)
-    :config
-    (setq neo-smart-open t)
-    (setq projectile-switch-project-action 'neotree-projectile-action))
-
-;; file tree, still helpful sometimes even though dired is baller
 
 (use-package rainbow-delimiters
     :mode "\\.pco\\'"
@@ -177,28 +296,46 @@
               (web-mode  . rainbow-mode)))
 ;; highlight color values i.e. hex codes with the actual color
 
-(if (> (x-display-pixel-width) 2560)
-    (set-face-attribute 'default nil
-		:family "UbuntuMono Nerd Font Mono"
-		:height 160
-		:weight 'normal
-		:width 'normal)
-    (set-face-attribute 'default nil
-		:family "UbuntuMono Nerd Font Mono"
-		:height 130
-		:weight 'normal
-		:width 'normal))
-;; Set font face and appropriate size based on display size.
+(use-package project)
 
-;;;;;;;;;;;;;;;; CODING ;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(add-hook 'js-mode-hook 'subword-mode)
-(add-hook 'js-mode-hook 'superword-mode)
+(use-package yasnippet
+    :bind (("C-," . yas-expand))
+    :config (yas-global-mode))
+;; snippets for expanding common code blocks etc.
 
-(defun bg-build-ivy (project)
-    (let ((project-path
-              (concat "~/code/ivy/frontend/ivy_" project)))
-        (async-shell-command (concat "cd " project-path " && nvm use 6 && yarn build && nvm use 14"))))
+(use-package ivy
+    :init (setq ivy-use-virtual-buffers t)
+    :config
+    (global-set-key (kbd "C-c C-r") 'ivy-resume)
+    (ivy-mode 1))
+;; replace Emacs' built-in completion engine with something a bit more...great.
+
+(use-package counsel
+    :config
+    (global-set-key (kbd "C-c g") 'counsel-git)
+    (global-set-key (kbd "C-c j") 'counsel-git-grep)
+    (global-set-key (kbd "C-c k") 'counsel-ag)
+    (global-set-key (kbd "\C-s") 'swiper)
+    (counsel-mode 1))
+;; find stuff!
+
+(use-package company
+    :hook ((prog-mode . company-mode)
+              (conf-mode . company-mode)
+              (web-mode  . company-mode))
+    :init
+    (setq company-idle-delay 0.1
+        company-minimum-prefix-length 2)
+    (setq-default company-tooltip-align-annotations t)
+    :config
+    (setq company-dabbrev-downcase nil))
+;; awesome auto-completion
+
+(use-package magit
+    :config
+    (setq magit-refresh-status-buffer nil)
+    (global-set-key (kbd "C-x g") 'magit))
+;; oh baby. git has never been this fun to use.
 
 (use-package add-node-modules-path
     :hook ((js-mode . add-node-modules-path)
@@ -219,65 +356,15 @@
     (setq-default flycheck-highlighting-mode 'lines))
 ;; check syntax!
 
-;; (use-package lsp-mode
-;;     :hook(bg-vue-mode . lsp))
-
-(use-package eglot
-    :config
-    (add-to-list 'eglot-server-programs '(bg-vue-mode . ("vls"))))
-
-(use-package company
-    :hook ((prog-mode . company-mode)
-              (conf-mode . company-mode)
-              (web-mode  . company-mode))
-    :init
-    (setq company-idle-delay 0.1
-        company-minimum-prefix-length 2)
-    (setq-default company-tooltip-align-annotations t)
-    :config
-    (setq company-dabbrev-downcase nil))
-;; awesome auto-completion
-
-(use-package ivy
-    :init (setq ivy-use-virtual-buffers t)
-    :config
-    (global-set-key (kbd "C-c C-r") 'ivy-resume)
-    (ivy-mode 1))
-;; replace Emacs' built-in completion engine with something a bit more...great.
-
-(use-package counsel
-    :config
-    (global-set-key (kbd "C-c g") 'counsel-git)
-    (global-set-key (kbd "C-c j") 'counsel-git-grep)
-    (global-set-key (kbd "C-c k") 'counsel-ag)
-    (global-set-key (kbd "\C-s") 'swiper)
-    (counsel-mode 1))
-;; find stuff!
-
-;; (use-package projectile
-;;     :config
-;;     (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
-;;     (projectile-mode 1))
-
-;; (use-package counsel-projectile
-;;     :config (counsel-projectile-mode 1))
-;; work with git projects like a pro!
-
-(use-package magit
-    :config
-    (setq magit-refresh-status-buffer nil)
-    (global-set-key (kbd "C-x g") 'magit))
-;; oh baby. git has never been this fun to use.
-
 (defun bg-vue-mode-setup ()
     (superword-mode)
     (subword-mode)
-    (eglot)
-    (setq web-mode-script-padding 0)
-    (setq web-mode-style-padding 0)
-    (setq web-mode-markup-indent-offset 2)
-    (setq web-mode-css-indent-offset 2)
-    (setq web-mode-code-indent-offset 2))
+    (lsp)
+    (setq-default web-mode-script-padding 0)
+    (setq-default web-mode-style-padding 0)
+    (setq-default web-mode-markup-indent-offset 2)
+    (setq-default web-mode-css-indent-offset 2)
+    (setq-default web-mode-code-indent-offset 2))
 
 (define-derived-mode bg-vue-mode web-mode "bg-vue-mode"
     "Major mode derived from web-mode, tailored for VueJS development")
@@ -294,6 +381,7 @@
 
 (use-package prettier
     :hook ((bg-vue-mode . prettier-mode)
+              (typescript-mode . prettier-mode)
               (js-mode . prettier-mode)))
 
 (use-package emmet-mode
@@ -307,53 +395,24 @@
 (use-package go-mode
     :mode "\\.go\\'")
 
-(use-package tide
-    :config
-    (defun setup-tide-mode ()
-        (interactive)
-        (tide-setup)
-        (flycheck-mode +1)
-        (setq flycheck-check-syntax-automatically '(save mode-enabled))
-        (eldoc-mode +1)
-        (tide-hl-identifier-mode +1)
-        ;; company is an optional dependency. You have to
-        ;; install it separately via package-install
-        ;; `M-x package-install [ret] company`
-        (company-mode +1))
-    ;; aligns annotation to the right hand side
-    (setq company-tooltip-align-annotations t)
-    ;; formats the buffer before saving
-    (add-hook 'typescript-mode-hook #'setup-tide-mode))
-;;;;;;;;;;;;;;;; ORG MODE ;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(add-hook 'org-mode-hook 'auto-fill-mode)
-(add-hook 'org-mode-hook 'visual-line-mode)
-
-(use-package org-pomodoro)
-
-(use-package org-journal)
-(setq org-journal-dir "~/org/journal/")
-
-
 (use-package yaml-mode
     :mode "\\.yml\\'")
 
 (use-package markdown-mode
     :mode (("\\.markdown\\'" . markdown-mode)
               ("\\.md\\'" . markdown-mode)))
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
-    '(custom-safe-themes
-         '("5a7830712d709a4fc128a7998b7fa963f37e960fd2e8aa75c76f692b36e6cf3c" default))
-    '(package-selected-packages
-         '(base16-theme modus-themes tide yasnippet yaml-mode web-mode use-package scss-mode rainbow-mode rainbow-delimiters prettier org-pomodoro org-journal neotree markdown-mode magit json-mode go-mode flycheck expand-region exec-path-from-shell evil-leader evil-escape emmet-mode eglot editorconfig doom-themes doom-modeline dashboard counsel-projectile company-box add-node-modules-path)))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+
+(use-package typescript-mode
+  :mode "\\.ts\\'")
+
+(use-package lsp-mode
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (bg-vue-mode . lsp)
+         (typescript-mode . lsp)
+         (js-mode . lsp)
+         ;; if you want which-key integration
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands lsp)
