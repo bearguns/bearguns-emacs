@@ -1,13 +1,28 @@
-;; Adjusts the Emacs garbage collector
+;; configure Emacs garbage collector, which is somewhat famous for
+;; possibly slowing down your editor
 (setq gc-cons-threshold most-positive-fixnum)
+(setq gc-cons-percentage 0.6)
 
-;; Delays enabling Emacs' package manager
+;; Don't enable Emacs' package system yet!
+;; We will do that later at a more optimal time.
 (setq package-enable-at-startup nil)
-(advice-add #'package--ensure-init-file :override #'ignore)
+(setq package-quickstart nil)
 
-;; Delay rendering certain (unwanted) UI elements
+;; Hide UI elements early, don't flash vanilla Emacs at me
+;; and make me think something's broken.
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
-(push '(vertical-scroll-bars) default-frame-alist)
-;; Delay resizing the Emacs frame
+(push '(verical-scroll-bars) default-frame-alist)
+
+;; Don't resize the frame at startup when rendering fonts.
 (setq frame-inhibit-implied-resize t)
+
+;; Now hide the default chrome
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+(setq inhibit-splash-screen 1)
+(setq use-file-dialog nil)
+
+;; Minimize compilation of packages and core
+(setq comp-deferred-compilation nil)

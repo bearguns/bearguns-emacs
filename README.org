@@ -1,587 +1,595 @@
 #+TITLE: Bearguns Emacs
-#+AUTHOR: Sean Brage
+#+STARTUP: content
+#+PROPERTY: header-args :emacs-lisp :tangle ./init.el
 
 [[./logo-sm.jpg]]
-This file represents the most recent attempt to sanitize,
-standardize and improve my Emacs configuration. Emacs is the tool I use the most
-during my day, both for work and personal reasons. I use Emacs for
-everything from programming and system administration, to journaling
-and task management. Over the years, Emacs has become a truly
-indispensible part of my daily workflow.
 
-* About this document
-This README is written in the Org syntax -- that is, it's an
-=org-mode= document. This means that if you were to view the raw text
-of this file, you would see a clean, structured markup syntax
-providing headings, emphasis, links, etc.
+* Introduction
+** Why Emacs?
+The short version? I just like it. There's something familiar and
+unfamiliar about Emacs that I find appealing. It's not too hard to get
+in and start editing files, but the skill ceiling is very high. The
+limit to what you can do with and within Emacs seems non-existent. I
+was a stubborn vimmer for a few years, before Spacemacs led me to
+Doom which led me to roll my own configuration.
 
-/However/, if you were to then open this file inside of Emacs and
-enable the =org-mode= [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Major-Modes.html][major mode]], this file would gain
-superpowers. [[https://orgmode.org/][Org mode]] is like Markdown, only exposed to nuclear
-radiation and granted godlike abilities. There's hardly enough space
-to cover these magical powers here in this document, but there is one
-worth mentioning upfront: the power of styling /and processing/ blocks
-of source code. That means that the code blocks you'll encounter
-further on in this document actually get "tangled" (that is to say,
-processed) out of this document into a =.el= file, which Emacs then
-uses to configure itself on startup.
+** Why not [EMACS_DISTRIBUTION]?
+As someone with an obsessive engineer brain, I don't like not knowing
+how things work or what they're doing. Writing my own "vanilla" Emacs
+configuration helps me learn more about Elisp, the various packages I
+use, and Emacs itself. It helps me escape the VS Code syndrome, where
+every keystroke seems to do /something/, but I'm not always sure what,
+why, when, how, or worse - how to configure or remove behavior I don't
+like.
 
-It sounds like science fiction, but I assure you, it's true. Read on,
-bear cubs, and enjoy the config.
+** Why a literate config?
+- It's cool
+- It's fun
+- It's declarative
+- It might just help someone else somewhere learn more about Emacs
+- It's cool
+
+** Can I copy this configuration?
+Sure! There are more than likely features and settings in this file
+that are specific to my system(s), but this is a great place to start
+learning about configuring Emacs to be your very own lifelong editor.
+
+** About this config
+This file is mostly organized by the logical flow of Emacs' startup
+cycle, and my own wants/needs as someone who uses Emacs primarily for
+coding at my day job.
+
+- Section 1 is about configuring sane defaults and startup
+  optimizations to make sure Emacs performance is closer to the "sweet
+  spot". This is a collection of optimizations that other, braver
+  souls have gone before to discover and distribute.
+- Section 2 deals with package management, setting up the platform to
+  install and configure external packages later on.
+- Section 3 deals with built-in Emacs configuration, getting the base
+  program to behave (mostly) the way I would like.
+- Section 4 sets up Evil, and our collection of Vim-spired keybindings
+  for editing text and manipulating Emacs.
+- Section 5 configures org-mode for managing tasks, notes, and files
+  like this one.
+- Sections 6 and beyond configure various packages and workflows for
+  setting a nice UI and workflow in Emacs.
 
 * Startup
-As your Emacs configuration grows, particularly as you begin using
-more and more packages and scripts to extend Emacs, the amount of time
-it takes for Emacs to be ready can also grow. These are settings I've
-found that improve the Emacs startup time. This code gets tangled into
-a file called =early-init.el=, which is newly-supported as of Emacs
-version 27. =early-init.el= is evaluated -- you guessed it! -- early
-in the Emacs initialization process, so code put here will be run
-/first/. It's the perfect place to do early optimizations.
-** Garbage collection
-The garbage collector in Emacs is a frequent offender as regards
-crimes of slowdown. There are a few popular tweaks we can make to
-speed things up by delaying when the GC is going to kick in:
-#+BEGIN_SRC emacs-lisp :tangle early-init.el
-;; Adjusts the Emacs garbage collector
+** early-init.el
+[[https://luca.cambiaghi.me/vanilla-emacs/readme.html#h:D9ED3ADB-810A-4A1C-A1D3-5397874AFAC7][Thanks to Luca Cambiaghi for a lot of this section]]
+
+#+BEGIN_SRC emacs-lisp :tangle  ./early-init.el
+;; configure Emacs garbage collector, which is somewhat famous for
+;; possibly slowing down your editor
 (setq gc-cons-threshold most-positive-fixnum)
-#+END_SRC
+(setq gc-cons-percentage 0.6)
 
-** Package initialization
-The built-in Emacs package manager can also slowdown our initial
-startup, so we can delay it until it's needed.
-#+BEGIN_SRC emacs-lisp :tangle early-init.el
-;; Delays enabling Emacs' package manager
+;; Don't enable Emacs' package system yet!
+;; We will do that later at a more optimal time.
 (setq package-enable-at-startup nil)
-(advice-add #'package--ensure-init-file :override #'ignore)
-#+END_SRC
+(setq package-quickstart nil)
 
-** UI rendering
-There are UI elements that we don't need to have rendered until we're
-actually ready to /use/ Emacs, so we can delay rendering them:
-#+BEGIN_SRC emacs-lisp :tangle early-init.el
-;; Delay rendering certain (unwanted) UI elements
+;; Hide UI elements early, don't flash vanilla Emacs at me
+;; and make me think something's broken.
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
-(push '(vertical-scroll-bars) default-frame-alist)
-;; Delay resizing the Emacs frame
+(push '(verical-scroll-bars) default-frame-alist)
+
+;; Don't resize the frame at startup when rendering fonts.
 (setq frame-inhibit-implied-resize t)
-#+END_SRC
 
-* Emacs defaults
-Out-of-the-box, Emacs is a powerful, capable editor with a wide
-variety of features and capabilities. That said, there are elements of
-this default behavior that I find less than ideal.
-
-** Backup & autosave
-Emacs tries to be "helpful" by creating autosave and backup files for
-you. However, these can be very annoying to deal with in
-version-controlled software projects, as they need to be explicitly
-added to something like =.gitignore= to prevent polluting the source
-code.
-
-One thing we can do to combat this, is keep backup files stored in a
-central location on our system, instead of inline with the files they
-represent:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(defun bg-backup-file-name (fpath)
-  "Return a new file path of FPATH.  If the new path's directories does not exist, create them."
-  (let* (
-        (backupRootDir "~/.emacs.d/backup/")
-        (filePath (replace-regexp-in-string "[A-Za-z]:" "" fpath )) ; remove Windows driver letter in path, for example, “C:”
-        (backupFilePath (replace-regexp-in-string "//" "/" (concat backupRootDir filePath "~") ))
-        )
-    (make-directory (file-name-directory backupFilePath) (file-name-directory backupFilePath))
-    backupFilePath
-  )
-)
-(setq make-backup-file-name-function 'bg-backup-file-name)
-;; make backup to a designated dir, mirroring the full path
-#+END_SRC
-
-Additionally, we can just disable creation of autosave and lockfiles:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(setq auto-save-default nil)
-(setq create-lockfiles nil)
-;; don't pollute the waters with these special files.
-#+END_SRC
-
-* Tramp & remote files
-Tramp is an incredible Emacs mode that allows you to directly edit and
-interact with remote files and filesystems over SSH, without leaving
-the comfort of your own local environment. These settings help provide
-a performant, consistent experiencewhen using Tramp.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(setq tramp-default-remote-shell "/bin/sh")
-#+END_SRC
-
-* Packages
-Emacs includes a built-in package manager for installing (downloading)
-and "requiring" (loading into the active context) packages, much like
-the VS Code marketplace. Only better. Using these packages requires
-making use of built-in functions to connect to and load packages from
-a remote repository.
-
-** Repositories
-The ELPA repository that Emacs points to by default is (I'm sure),
-just fine. However, everything I want to install and use is available
-on the MELPA repository! This block configures Emacs to refer to MELPA
-for installing third-party packages:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(require 'package)
-;; require the built-in "package" package
-(add-to-list 'package-archives
-	     '("melpa" . "https://melpa.org/packages/"))
-(add-to-list 'package-archives
-	     '("gnu" . "https://elpa.gnu.org/packages/"))
-;; Make sure Melpa is our go-to package repository!
-(package-initialize)
-#+END_SRC
-
-** Package install helper(s)
-I thought I would be smart and hand-roll my own solution for
-installing and requiring packages. I now see the error of my ways.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(defun bg-require-package (package)
-  "Install PACKAGE if not found on startup."
-  (if (package-installed-p package)
-      t
-    (progn
-      (unless (assoc package package-archive-contents)
-	(package-refresh-contents))
-        (package-install package)
-        (require package))))
-;; helper function to install packages (can be reused!).
-(setq use-package-always-ensure t)
-(bg-require-package 'use-package)
-#+END_SRC
-
-* Editor Settings
-** Editor Defaults
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(global-display-line-numbers-mode)
-;; always display line numbers with the new fast way
-
-(require 'misc)
-;; load some improvements to how cursor movements etc. work.
-
-(electric-pair-mode 1)
-;; Auto-close delimiters like (,",{,etc.
-
-(add-hook 'prog-mode-hook 'electric-indent-mode)
-(setq-default tab-always-indent 'complete)
-(setq-default tab-width 2)
-(setq-default indent-tabs-mode nil)
-;; Fixes for indentation behaviors when coding
-
-(setq-default cursor-type 'box)
-;; Improve cursor visibility in buffers.
-#+END_SRC
-
-** Evil
-Emacs as a text editor has a lot to offer. However, I’ve found that
-the keybindings are difficult for me and at least personally, lead to
-a noticable amount of pinky and arm pain by the end of a long
-programming session. In this regard, I think that the Evil package
-provides a truly great editing experience.
-
-If you want to use evil, uncomment all this stuff.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-;;(setq-default evil-want-C-u-delete t)
-;;(setq-default evil-want-C-u-scroll t)
-;;(setq-default evil-want-C-d-scroll t)
-;;(setq-default evil-respect-visual-line-mode t)
-;;(setq-default evil-show-paren-range 1)
-;;(setq-default evil-escape-key-sequence "jk")
-;;(bg-require-package 'evil)
-;;(bg-require-package 'evil-leader)
-;;(bg-require-package 'evil-escape)
-;;
-;;(evil-mode 1)
-;;
-;;;; Undotree is poop and crashes Emacs every time I try to use it
-;;(global-undo-tree-mode -1)
-;;(global-evil-leader-mode)
-;;(evil-escape-mode 1)
-;;
-;;(evil-leader/set-leader "<SPC>")
-;;(evil-leader/set-key
-;;  "wo" 'other-window
-;;  "w0" 'delete-window
-;;  "w1" 'delete-other-windows
-;;  "w2" 'bg-split-v
-;;  "w3" 'bg-split-h)
-;;  
-;;  
-;;(evil-leader/set-key "fs" 'save-buffer)
-#+END_SRC
-
-** Snippets
-YASnippet provides a way to quickly and easily expand abbreviations
-into full snippets of text, code, etc. All with easy movement between
-predefined locations within the expanded snippet!
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package yasnippet
-  :config (yas-global-mode))
-#+END_SRC
-* The Emacs UI
-** Defaults & Performance
-There are some tricks I've copied and pasted that, while beyond my
-understanding, seem to make Emacs snappier but YMMV.
-*** UI defaults
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(show-paren-mode 1)
+;; Now hide the default chrome
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
-;; Hide the default UI chrome.
+(setq inhibit-splash-screen 1)
+(setq use-file-dialog nil)
 
-(setq ring-bell-function 'ignore)
-;; LEAVE ME ALONE EMACS I GET IT I MADE A MISTAKE.
+;; Minimize compilation of packages and core
+(setq comp-deferred-compilation nil)
 #+END_SRC
 
-*** Startup screen
-Override default startup behavior:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(setq inhibit-startup-message t
-    inhibit-startup-echo-area-message user-login-name
-    inhibit-default-init t
-    initial-major-mode 'fundamental-mode
-    initial-scratch-message nil)
-#+END_SRC
-
-Add a nice dashboard with recents, bookmarks, etc:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package dashboard
-  :ensure t
-  :init
-  (setq dashboard-center-content t)
-  (setq dashboard-items '((recents . 5)
-                          (projects . 5)
-                          (bookmarks . 5)))
-  (setq dashboard-set-heading-icons t)
-  (setq dashboard-set-file-icons t)
-  (setq-default dashboard-startup-banner "~/.emacs.d/logo-sm.png")
-  :config 
-  (dashboard-setup-startup-hook))
-#+END_SRC
-
-*** Performance enhancements
+** Startup optimization
 #+BEGIN_SRC emacs-lisp
-(setq idle-update-delay 1.0)
-
-(setq-default bidi-display-reordering 'left-to-right
-              bidi-paragraph-direction 'left-to-right)
-
-(setq ffap-machine-p-known 'reject)
-
-(setq gcmh-idle-delay 5
-      gcmh-high-cons-threshold (* 16 1024 1024))
+;; According to smart people, `file-name-handler-alist` is
+;; consulted a LOT during the Emacs lifecycle. We can adjust this to improve
+;; startup times.
+(unless (daemonp)
+  (defvar bg--initial-file-name-handler-alist file-name-handler-alist)
+  (setq file-name-handler-alist nil)
+  ;; helper to restore the original alist once we are done
+  (defun bg-reset-file-handler-alist-h ()
+  (dolist (handler file-name-handler-alist)
+    (add-to-list 'bg--initial-file-name-handler-alist handler))
+  (setq file-namde-handler-alist bg--initial-file-name-handler-alist))
+  (add-hook 'emacs-startup-hook #'bg-reset-file-handler-alist-h)
+  (add-hook 'after-init-hook '(lambda ()
+    ;; restore original GC settings
+    (setq gc-cons-threshold 16777216
+          gc-cons-percentage 0.1)))
+)
+;; Set our working directory here
+(setq user-emacs-directory (file-truename (file-name-directory load-file-name)))
 #+END_SRC
 
-*** Scrolling & point
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(setq-default cursor-in-non-selected-windows nil)
-;; hide point in non-selected windows to make it easier to find active window
-(setq highlight-nonselected-windows nil)
-;; don't highlight nonselected windows for visual clarity
-(setq fast-but-imprecise-scrolling t)
-;; scroll faster!
-(setq scroll-conservatively 25)
-;; when moving cursor to bottom of screen, start scrolling at 25 lines away from bottom
+
+* Package Management
+** Bootstrap Straight & Straight-Use-Package
+Straight seems to be the (relative to Emacs) new kid on the block for
+managing packages. Rather than fetching from ELPA/MELPA it gets
+packages "straight" from the source on Github etc. This is an
+experiment for me, but I'm hoping the payoff will...exist?
+
+#+BEGIN_SRC emacs-lisp
+(setq straight-check-for-modifications '(check-on-save find-when-checking))
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
 #+END_SRC
 
-** Theming
-   Emacs can be themed in a number of ways, the most basic being
-   applying a color scheme. While themes can be installed from
-   ELPA/MELPA, they can also be loaded from a custom themes directly
-   (for hand-rolled themes etc.). My current favorite theme is subject
-   to change and possible enhancements.
-
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(add-to-list 'custom-theme-load-path "~/.emacs.d/themes")
-(use-package night-owl-theme
-  :config (load-theme 'night-owl t))
-;;(load-theme 'misterioso)
+** Use-Package Statistics
+This seems like a nice-to-have for finding bloat.
+#+BEGIN_SRC emacs-lisp
+(setq use-package-compute-statistics t)
 #+END_SRC
 
-** Frills and thrills
-Fancy modelines! Nyan cats! Icons!
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package nyan-mode
+
+* Emacs
+** Defaults
+#+BEGIN_SRC emacs-lisp
+(use-package emacs
   :init
-  (setq nyan-animate-nyancat t)
-  :config
-  (nyan-mode 1))
+  (setq inhibit-startup-screen t
+        initial-scratch-message nil
+        sentence-end-double-space nil
+        ring-bell-function 'ignore
+        frame-resize-pixelwise t)
+  (setq user-full-name "Sean Brage"
+        user-mail-address "seanmbrage@me.com")
+        
+  (setq read-process-output-max (* 1024 1024))
+  
+  ;; utf-8 please and thanks
+  (set-charset-priority 'unicode)
+  (setq locale-coding-system 'utf-8
+        coding-system-for-read 'utf-8
+        coding-system-for-write 'utf-8)
+  (set-terminal-coding-system 'utf-8)
+  (set-keyboard-coding-system 'utf-8)
+  (set-selection-coding-system 'utf-8)
+  (prefer-coding-system 'utf-8)
+  (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
 
+  ;; Recent files -- yay!
+  (recentf-mode t)
+  (setq recentf-exclude `(,(expand-file-name "straight/build/" user-emacs-directory)
+                          ,(expand-file-name "eln-cache/" user-emacs-directory)
+                          ,(expand-file-name "etc/" user-emacs-directory)
+                          ,(expand-file-name "var/")))
+
+  ;; Don't keep a custom file, this just messes things up especially with VC
+  (setq custom-file (make-temp-file ""))
+  (setq custom-safe-themes t)
+  (setq enable-local-variables :all)
+
+  ;; No backup files!
+  (setq make-backup-files nil
+        auto-save-default nil
+        create-lockfiles nil)
+
+  ;; follow symlinks
+  (setq vc-follow-symlinks t)
+
+  ;; clean UI
+  (when (window-system)
+    (tool-bar-mode -1)
+    (toggle-scroll-bar -1))
+    
+  ;; winner mode for window layout management (YES)
+  (winner-mode t)
+
+  ;; highlight matching parens
+  (show-paren-mode t)
+
+  ;; autopairs
+  (electric-pair-mode +1)
+
+  ;; sshh
+  (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
+  
+  ;; cleanup modeline
+  (display-time-mode -1)
+  (setq column-number-mode t)
+  
+  ;; do some indentation normalization
+  (setq-default tab-width 2)
+  (setq-default indent-tabs-mode nil)
+  (setq-default tab-always-indent 'complete)
+  (electric-indent-mode 1)
+  
+  (global-display-line-numbers-mode 1)
+  (add-hook 'prog-mode-hook (lambda () 
+    (setq display-line-numbers-type 'relative)))
+
+  (add-hook 'org-mode-hook (lambda ()
+    (setq display-line-numbers-type 'relative)))
+
+  (if (> (display-pixel-width) 2560)
+    (set-frame-font "JetBrains Mono-14")
+    (set-frame-font "JetBrains Mono-11"))
+)
+
+
+#+END_SRC
+** Mac-specific Configuration
+#+BEGIN_SRC emacs-lisp
+(use-package emacs
+  :init
+  (when (eq system-type 'darwin)
+    (setq mac-command-modifier 'super)
+    (setq mac-option-modifier 'meta)
+    (setq mac-control-modifier 'control)
+    (global-set-key [(s c)] 'kill-ring-save)
+    (global-set-key [(s v)] 'yank)
+    (global-set-key [(s x)] 'kill-region)
+    (global-set-key [(s q)] 'kill-emacs)))
+
+(use-package exec-path-from-shell
+  :if (memq window-system '(mac ns))
+  :hook (emacs-startup . (lambda ()
+                           (setq exec-path-from-shell-arguments '("-l"))
+                           (exec-path-from-shell-initialize))))
+
+(use-package emacs
+  :init
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+  (add-to-list 'default-frame-alist '(ns-appearance . dark))
+  (setq ns-use-proxy-icon  nil)
+  (setq frame-title-format nil)
+)
+#+END_SRC
+
+
+* Keybindings & Editing
+** General
+#+BEGIN_SRC emacs-lisp
+(use-package general
+  :demand t
+  :config 
+  (general-evil-setup)
+  
+  (general-create-definer bg/leader-keys
+    :states '(normal insert visual emacs)
+    :keymaps 'override
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+
+  (general-create-definer bg/local-leader-keys
+    :states '(normal visual)
+    :keymaps 'override
+    :prefix ","
+    :global-prefix "SPC m")
+
+  (bg/leader-keys
+    "SPC" '(execute-extended-command :which-key "execute command")
+    "b" '(:ignore t :which-key "buffer")
+    "bb" 'ibuffer
+    "br" 'revert-buffer
+    "bd" 'kill-current-buffer
+    "bn" 'next-buffer
+    "bp" 'previous-buffer
+
+    "c" '(:ignore t :which-key "code")
+    "d" '(:ignore t :whick-key "dired")
+    "dd" 'dired
+    "f" '(:ignore t :which-key "file")
+    "ff" 'find-file
+    "fs" 'save-buffer
+    "fr" 'recentf-open-files
+    
+    "p" '(:ignore t :which-key "project")
+    "pp" 'project-switch-project
+    "pf" 'project-find-file
+    "pg" 'project-find-regexp
+    
+    "w" '(:ignore t :whick-key "window")
+    "wl" 'windmove-right
+    "wh" 'windmove-left
+    "wj" 'windmove-down
+    "wk" 'windmove-up
+    "wr" 'winner-redo
+    "wd" 'delete-window
+    "w3" 'split-window-right
+    "w2" 'split-window-below
+    "w=" 'balance-windows-area
+    "wD" 'kill-buffer-and-window
+    "wu" 'winner-undo
+    "wr" 'winner-redo
+    "wm" '(delete-other-windows :wk "maximize")
+
+    "l" '(:ignore t :which-key "lsp")
+    "gd" 'lsp-goto-type-definition
+    "gi" 'lsp-goto-implementation))
+#+END_SRC
+
+** EVIL
+#+BEGIN_SRC emacs-lisp
+  (use-package evil
+    :demand
+    :general
+    (lc/leader-keys
+      "wv" 'evil-window-vsplit
+      "ws" 'evil-window-split)
+    :init
+    (setq evil-want-C-u-scroll t)
+    (setq evil-want-C-i-jump nil)
+    (setq evil-respect-visual-line-mode t)
+    (setq evil-undo-system 'undo-fu)
+    (setq evil-split-window-below t)
+    (setq evil-vsplit-window-right t)
+    :config
+    (setq-default display-line-numbers 'relative)
+    (evil-mode 1))
+
+  (use-package evil-escape
+    :demand
+    :init (setq-default evil-escape-key-sequence "jk")
+    :config (evil-escape-mode 1))
+  
+;; (use-package evil-collection
+;;   :after evil
+;;   :demand
+;;   :init (setq evil-collection-magit-use-z-for-folds nil)
+;;   :config (evil-collection-init))
+
+  (use-package evil-goggles
+    :after evil
+    :demand
+    :init (setq evil-goggles-duration 0.05)
+    :config
+    (push '(evil-operator-eval
+            :face evil-goggles-yank-face
+            :switch evil-goggles-enable-yank
+            :advice evil-goggles--generic-async-advice)
+            evil-goggles--commands)
+    (evil-goggles-mode)
+    (evil-goggles-use-diff-faces))
+
+  (use-package evil-surround
+    :general
+    (:states 'operator
+      "s" 'evil-surround-edit
+      "S" 'evil-Surround-edit)
+    (:states 'visual
+      "S" 'evil-surround-region
+      "gS" 'evil-Surround-region))
+#+END_SRC
+
+** Which-Key
+#+BEGIN_SRC emacs-lisp
+(use-package which-key
+  :demand t
+  :init
+  (setq which-key-separator " ")
+  (setq which-key-prefix-prefix "+")
+  :config (which-key-mode))
+#+END_SRC
+
+* UI Config
+** Modus Theme
+   A very nice theme, worth checking out by uncommenting this block
+#+BEGIN_SRC emacs-lisp
+;; (use-package modus-themes
+;;   :demand
+;;   :init (modus-themes-load-themes)
+;;   :config (modus-themes-load-vivendi))
+#+END_SRC
+
+** Dracula Theme
+While I wait for Dracula Pro to support Emacs OOTB, doom-dracula is the NBT.
+#+BEGIN_SRC emacs-lisp
+(use-package dracula-theme
+  :demand
+  :config (load-theme 'dracula t))
+#+END_SRC
+** Modeline
+The modeline appears at the bottom of every Emacs window, and is full of helpful information.
+There are a packages that can improve the display of the modeline, like doom-modeline.
+#+BEGIN_SRC emacs-lisp
+(use-package doom-modeline
+  :demand
+  :init
+  (setq doom-modeline-height 30)
+  (setq doom-modeline-icon (display-graphic-p))
+  (setq doom-modeline-major-mode-icon t)
+  (doom-modeline-mode 1))
+#+END_SRC
+** All the Icons
+#+BEGIN_SRC emacs-lisp
 (use-package all-the-icons)
-
-(use-package spaceline
-  :config
-  (spaceline-emacs-theme))
-
-(use-package spaceline-all-the-icons 
-  :after spaceline
-  :config (spaceline-all-the-icons-theme))
-
-(use-package neotree
-  :init
-  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
-  (global-set-key (kbd "C-c t") 'neotree-toggle))
-
-(use-package rainbow-delimiters
-  :mode "\\.pco\\'"
-  :hook ((prog-mode . rainbow-delimiters-mode)
-         (conf-mode . rainbow-delimiters-mode)))
-
-(use-package rainbow-mode
-  :hook ((prog-mode . rainbow-mode)
-         (conf-mode . rainbow-mode)
-         (css-mode  . rainbow-mode)
-         (web-mode  . rainbow-mode)))
-#+END_SRC
-
-* Window Management
-Emacs makes it easy to split the frame into multiple windows. I have a
-few modifications I like to make to enhance the default behavior.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(defun bg-split-h ()
-  "Split window right"
-  (interactive)
-  (split-window-right)
-  (other-window 1))
-(defun bg-split-v ()
-  "Split window below"
-  (interactive)
-  (split-window-below)
-  (other-window 1))
-;; Functions to split window and move focus to new windows
-
-(global-set-key (kbd "C-x 2") 'bg-split-v)
-(global-set-key (kbd "C-x 3") 'bg-split-h)
-;; Override default split bindings with split-and-follow functions
-#+END_SRC
-
-* Font Settings
-I work half my time on a laptop screen, and the other half connected
-to a big 4k display. It’s helpful to set the font size accordingly
-when I start Emacs.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(when window-system
-  (if (> (x-display-pixel-width) 2560)
-      (set-face-attribute 'default nil
-			  :family "UbuntuMono Nerd Font Mono"
-			  :height 160
-			  :weight 'normal
-			  :width 'normal)
-    (set-face-attribute 'default nil
-			:family "UbuntuMono Nerd Font Mono"
-			:height 130
-			:weight 'normal
-			:width 'normal)))
-;; Set font face and appropriate size based on display size.
+;; it's all the icons
 
 (unless (member "all-the-icons" (font-family-list))
-  (all-the-icons-install-fonts t))
-;; Install...well, all of the icons.
+    (all-the-icons-install-fonts t))
+;; Install...well, all of the fonts for all-the-icons
 #+END_SRC
 
-* $PATH
-Unfortunately, I can't always guaruntee that the system =$PATH=
-variable is respected by Emacs consistently across systems. This
-package, [[https://github.com/purcell/exec-path-from-shell][exec-path-from-shell]] makes this a non-issue.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package exec-path-from-shell
-  :config (exec-path-from-shell-initialize))
+** Rainbows
+#+BEGIN_SRC emacs-lisp
+(use-package rainbow-delimiters
+    :mode "\\.pco\\'"
+    :hook ((prog-mode . rainbow-delimiters-mode)
+              (conf-mode . rainbow-delimiters-mode)))
+;; colorize nested brackets and parens, helpful to determine scope
 
-(use-package add-node-modules-path
-  :hook ((js-mode . add-node-modules-path)
-         (typescript-mode . add-node-modules-path)
-         (prettier-js-mode . add-node-modules-path)))
+(use-package rainbow-mode
+    :hook ((prog-mode . rainbow-mode)
+              (conf-mode . rainbow-mode)
+              (css-mode  . rainbow-mode)
+              (web-mode  . rainbow-mode)))
+;; highlight color values i.e. hex codes with the actual color
 #+END_SRC
 
-* Org mode
-As discussed above, =org-mode= is like having a rich, easy markup
-language for formatting and exporting documents, and /also/ having
-radical X-men powers. Like Lucy in the movie /Lucy/, I'm also only
-using 10% of Org's potential, but the settings below provide features
-I find useful.
-
-*** Defaults
-=auto-fill=mode= ensures that lines in org files will break at 80
-characters (or the set length). This is helpful for writing prose, and
-for the less programmatic nature of my org
-documents.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(add-hook 'org-mode-hook 'auto-fill-mode)
-(add-hook 'org-mode-hook 'visual-line-mode)
+* Core Packages
+** Project
+Emacs built-in project management package. It rocks.
+#+BEGIN_SRC emacs-lisp
+(use-package project)
 #+END_SRC
-
-*** Pomodoro
-The pomodoro technique is a useful tool for focus and productivity,
-and there's a great package that allows you to start pomodoro timers
-for =TODO= items in your =.org= files:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package org-pomodoro)
+** YA Snippet
+Configurable snippet expansion for common text snippets.
+#+BEGIN_SRC emacs-lisp
+(use-package yasnippet
+    :bind (("C-," . yas-expand))
+    :config (yas-global-mode))
+;; snippets for expanding common code blocks etc.
 #+END_SRC
-
-*** Journaling
-Journaling is a habit I'm trying to get back into, and there's a
-simple helper package that enables a wide variety of journaling
-features in Emacs:
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package org-journal)
-(setq org-journal-dir "~/org/journal/")
-#+END_SRC
-
-* Ivy, Counsel, and Swiper
-These 3 packages provide a wonderful, rapid workflow for searching and
-finding things in Emacs. I encourage you to read more about them on
-your own time.
-
-#+BEGIN_SRC emacs-lisp :tangle init.el
+** Expand Region
+Helpful for quickly selecting with parens, brackets, etc.
+#+BEGIN_SRC emacs-lisp
+(use-package expand-region
+    :config (global-set-key (kbd "C-;") 'er/expand-region))
+#+END_SRC emacs-lisp
+** Ivy + Counsel
+2 packages that improve Emacs auto-completion framework.
+#+BEGIN_SRC emacs-lisp
 (use-package ivy
-  :init (setq ivy-use-virtual-buffers t)
-  :config
-  (global-set-key (kbd "C-c C-r") 'ivy-resume)
-  (ivy-mode 1))
+    :init (setq ivy-use-virtual-buffers t)
+    :config
+    (global-set-key (kbd "C-c C-r") 'ivy-resume)
+    (ivy-mode 1))
+;; replace Emacs' built-in completion engine with something a bit more...great.
+
 (use-package counsel
-  :config
-  (global-set-key (kbd "C-c g") 'counsel-git)
-  (global-set-key (kbd "C-c j") 'counsel-git-grep)
-  (global-set-key (kbd "C-c k") 'counsel-ag)
-  (global-set-key (kbd "\C-s") 'swiper)
-  (counsel-mode 1))
+    :config
+    (global-set-key (kbd "C-c g") 'counsel-git)
+    (global-set-key (kbd "C-c j") 'counsel-git-grep)
+    (global-set-key (kbd "C-c k") 'counsel-ag)
+    (global-set-key (kbd "\C-s") 'swiper)
+    (counsel-mode 1))
+;; find stuff!
 #+END_SRC
-* Company Mode
-Company is the best-in-class solution for code completion in Emacs.
-#+BEGIN_SRC emacs-lisp :tangle init.el
+
+** Company
+#+BEGIN_SRC emacs-lisp
 (use-package company
-  :hook ((prog-mode . company-mode)
-         (conf-mode . company-mode)
-         (web-mode  . company-mode)
-         (lsp-mode  . company-mode))
-  :init
-  (setq company-idle-delay 0.1
+    :hook ((prog-mode . company-mode)
+              (conf-mode . company-mode)
+              (web-mode  . company-mode))
+    :init
+    (setq company-idle-delay 0.1
         company-minimum-prefix-length 2)
-  (setq-default company-tooltip-align-annotations t))
-  
-(use-package company-box
-  :hook (company-mode . company-box-mode))
+    (setq-default company-tooltip-align-annotations t)
+    :config
+    (setq company-dabbrev-downcase nil))
+;; awesome auto-completion
 #+END_SRC
-* Git
-The way I'm able to do my daily work of programming in Git
-repositories within Emacs is what has kept me so invested in the
-platform.
-#+BEGIN_SRC emacs-lisp :tangle init.el
+
+** Magit
+#+BEGIN_SRC emacs-lisp
 (use-package magit
-  :config
-  (setq magit-refresh-status-buffer nil)
-  (setq vc-handled-backends nil)
-  (global-set-key (kbd "C-x g") 'magit))
-
-(use-package projectile
-  :config
-  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
-  (projectile-mode 1))
-
-(use-package counsel-projectile
-  :config (counsel-projectile-mode 1))
+    :config
+    (setq magit-refresh-status-buffer nil)
+    (global-set-key (kbd "C-x g") 'magit))
+;; oh baby. git has never been this fun to use.
 #+END_SRC
+* Programming
+#+BEGIN_SRC emacs-lisp
+(use-package add-node-modules-path
+    :hook ((js-mode . add-node-modules-path)
+              (typescript-mode . add-node-modules-path)))
 
-* Linting and formatting source code
-** Flycheck
-Flycheck is an awesome tool that hooks into syntax checkers like
-ESLint etc.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package flycheck
-  :hook ((prog-mode . flycheck-mode)
-         (conf-mode . flycheck-mode)
-         (web-mode  . flycheck-mode)
-         (css-mode  . flycheck-mode))
-  :config
-  (setq-default flycheck-emacs-lisp-load-path 'inherit)
-  (setq-default flycheck-highlighting-mode 'lines)
-  (setq-default flycheck-indication-mode 'right-fringe))
-#+END_SRC
-** Editorconfig
-Editorconfig is a program that allows definition of coding standards
-(spacing, end-of-file-newlines, charsets etc.) in a text file, and
-automagically configuring your editor to respect those settings.
-#+BEGIN_SRC emacs-lisp :tangle init.el
 (use-package editorconfig
-  :config (editorconfig-mode 1))
-#+END_SRC
-* Web Development
-** Web-mode
-Web-mode is a great package for adding syntax, checking, etc. to
-markup files like HTML, Handlebars, etc. It also works great for VueJS
-with a little massaging.
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(defun bg-vue-mode ()   
-    (when (and (stringp buffer-file-name)   
-           (string-match "\\.vue\\'" buffer-file-name))
-           (lsp)
-           (prettier-js-mode 1)
-           (setq web-mode-script-padding 0)
-           (setq web-mode-style-padding 0)
-           (setq web-mode-markup-indent-offset 2)
-           (setq web-mode-css-indent-offset 2)
-           (setq web-mode-code-indent-offset 2)))
+    :config (editorconfig-mode 1))
+;; ensure editor settings are consistent between developers
+
+(use-package flycheck
+    :hook ((prog-mode . flycheck-mode)
+              (conf-mode . flycheck-mode)
+              (web-mode  . flycheck-mode)
+              (css-mode  . flycheck-mode))
+    :config
+    (add-to-list 'flycheck-enabled-checkers 'javascript-eslint)
+    (setq-default flycheck-emacs-lisp-load-path 'inherit)
+    (setq-default flycheck-highlighting-mode 'lines))
+;; check syntax!
+
+(defun bg-vue-mode-setup ()
+    (superword-mode)
+    (subword-mode)
+    (lsp)
+    (setq-default web-mode-script-padding 0)
+    (setq-default web-mode-style-padding 0)
+    (setq-default web-mode-markup-indent-offset 2)
+    (setq-default web-mode-css-indent-offset 2)
+    (setq-default web-mode-code-indent-offset 2))
+
+(define-derived-mode bg-vue-mode web-mode "bg-vue-mode"
+    "Major mode derived from web-mode, tailored for VueJS development")
+(add-to-list 'auto-mode-alist '("\\.vue\\'" . bg-vue-mode))
+(add-hook 'bg-vue-mode-hook #'add-node-modules-path)
+(add-hook 'bg-vue-mode-hook #'bg-vue-mode-setup)
+;; configuration to make web-mode play better with .vue files
 
 (use-package web-mode
-  :mode (("\\.html\\'" . web-mode)
-         ("\\.hbs\\'" . web-mode)
-         ("\\.vue\\'" . web-mode)
-         ("\\.erb\\'" . web-mode))
-  :hook (web-mode . bg-vue-mode))
-#+END_SRC
-** Emmet
-Emmet provides a simple DSL for adding HTML tags to a document with a
-simple shorthand. It's a must-have!
-#+BEGIN_SRC emacs-lisp :tangle init.el
+    :mode (("\\.html\\'" . web-mode)
+              ("\\.hbs\\'" . web-mode)
+              ("\\.erb\\'" . web-mode)))
+;; all the html, hbs, ejs, erb, vue, etc.
+
+(use-package prettier
+    :hook ((bg-vue-mode . prettier-mode)
+              (typescript-mode . prettier-mode)
+              (js-mode . prettier-mode)))
+
 (use-package emmet-mode
-  :hook web-mode)
-#+END_SRC
+    :hook web-mode)
+;; expand html elements
 
-** SASS
-#+BEGIN_SRC emacs-lisp :tangle init.el
 (use-package scss-mode
-  :mode "\\.scss\\'")
+    :mode "\\.scss\\'")
+;; make sass more better
+
+(use-package go-mode
+    :mode "\\.go\\'")
+
+(use-package yaml-mode
+    :mode "\\.yml\\'")
+
+(use-package markdown-mode
+    :mode (("\\.markdown\\'" . markdown-mode)
+              ("\\.md\\'" . markdown-mode)))
 #+END_SRC
 
-* LSP
-The language server protocol is a tool developed by MSFT (gasp!) to
-provide an intellisense-like experience to any editor. With Emacs
-27.1 adding native JSON parsing, LSP finally works in a fairly quick
-and responsive way!
+** TypeScript
+#+BEGIN_SRC emacs-lisp
+(use-package typescript-mode
+  :mode "\\.ts\\'")
+#+END_SRC
 
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package lsp
-  :hook ((ruby-mode . lsp)
+** LSP
+#+BEGIN_SRC emacs-lisp
+(use-package lsp-mode
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (bg-vue-mode . lsp)
+         (typescript-mode . lsp)
          (js-mode . lsp)
-         (typescript-mode . lsp)))
-#+END_SRC
-
-* JavaScript
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(setq js-offset-indent 2)
-
-(use-package prettier-js
-  :hook (js-mode . prettier-js-mode))
-#+END_SRC
-
-* Writing & markup languages
-** TODO add documentation for this section
-#+BEGIN_SRC emacs-lisp :tangle init.el
-(use-package yaml-mode)
-(use-package markdown-mode)
-
-(add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
-
-(add-to-list 'auto-mode-alist '("\\.markdown\\'" . markdown-mode))
-(add-to-list 'auto-mode-alist '("\\.md\\'" . markdown-mode))
-(autoload 'gfm-mode "markdown-mode"
-   "Major mode for editing GitHub Flavored Markdown files" t)
-(add-to-list 'auto-mode-alist '("README\\.md\\'" . gfm-mode))
+         ;; if you want which-key integration
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands lsp)
 #+END_SRC
