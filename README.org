@@ -34,41 +34,11 @@ Sure! There are more than likely features and settings in this file
 that are specific to my system(s), but this is a great place to start
 learning about configuring Emacs to be your very own lifelong editor.
 
-** About this config
-This file is mostly organized by the logical flow of Emacs' startup
-cycle, and my own wants/needs as someone who uses Emacs primarily for
-coding at my day job.
-
-- Section 1 is about configuring sane defaults and startup
-  optimizations to make sure Emacs performance is closer to the "sweet
-  spot". This is a collection of optimizations that other, braver
-  souls have gone before to discover and distribute.
-- Section 2 deals with package management, setting up the platform to
-  install and configure external packages later on.
-- Section 3 deals with built-in Emacs configuration, getting the base
-  program to behave (mostly) the way I would like.
-- Section 4 sets up Evil, and our collection of Vim-spired keybindings
-  for editing text and manipulating Emacs.
-- Section 5 configures org-mode for managing tasks, notes, and files
-  like this one.
-- Sections 6 and beyond configure various packages and workflows for
-  setting a nice UI and workflow in Emacs.
-
 * Startup
 ** early-init.el
 [[https://luca.cambiaghi.me/vanilla-emacs/readme.html#h:D9ED3ADB-810A-4A1C-A1D3-5397874AFAC7][Thanks to Luca Cambiaghi for a lot of this section]]
 
 #+BEGIN_SRC emacs-lisp :tangle  ./early-init.el
-;; configure Emacs garbage collector, which is somewhat famous for
-;; possibly slowing down your editor
-(setq gc-cons-threshold most-positive-fixnum)
-(setq gc-cons-percentage 0.6)
-
-;; Don't enable Emacs' package system yet!
-;; We will do that later at a more optimal time.
-(setq package-enable-at-startup nil)
-(setq package-quickstart nil)
-
 ;; Hide UI elements early, don't flash vanilla Emacs at me
 ;; and make me think something's broken.
 (push '(menu-bar-lines . 0) default-frame-alist)
@@ -84,155 +54,130 @@ coding at my day job.
 (scroll-bar-mode -1)
 (setq inhibit-splash-screen 1)
 (setq use-file-dialog nil)
-
-;; Minimize compilation of packages and core
-(setq comp-deferred-compilation nil)
 #+END_SRC
-
-** Startup optimization
-#+BEGIN_SRC emacs-lisp
-;; According to smart people, `file-name-handler-alist` is
-;; consulted a LOT during the Emacs lifecycle. We can adjust this to improve
-;; startup times.
-(unless (daemonp)
-  (defvar bg--initial-file-name-handler-alist file-name-handler-alist)
-  (setq file-name-handler-alist nil)
-  ;; helper to restore the original alist once we are done
-  (defun bg-reset-file-handler-alist-h ()
-  (dolist (handler file-name-handler-alist)
-    (add-to-list 'bg--initial-file-name-handler-alist handler))
-  (setq file-namde-handler-alist bg--initial-file-name-handler-alist))
-  (add-hook 'emacs-startup-hook #'bg-reset-file-handler-alist-h)
-  (add-hook 'after-init-hook '(lambda ()
-    ;; restore original GC settings
-    (setq gc-cons-threshold 16777216
-          gc-cons-percentage 0.1)))
-)
-;; Set our working directory here
-(setq user-emacs-directory (file-truename (file-name-directory load-file-name)))
-#+END_SRC
-
 
 * Package Management
-** Bootstrap Straight & Straight-Use-Package
-Straight seems to be the (relative to Emacs) new kid on the block for
-managing packages. Rather than fetching from ELPA/MELPA it gets
-packages "straight" from the source on Github etc. This is an
-experiment for me, but I'm hoping the payoff will...exist?
-
+** Use-Package
 #+BEGIN_SRC emacs-lisp
-(setq straight-check-for-modifications '(check-on-save find-when-checking))
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 5))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
+  ;; Initialize package sources
+  (require 'package)
+  (add-to-list 'package-archives
+         '("melpa" . "https://melpa.org/packages/") t)
+  (add-to-list 'package-archives
+             '("GNU ELPA" . "https://elpa.gnu.org/packages/"))
+  (package-initialize)
 
-(straight-use-package 'use-package)
-(setq straight-use-package-by-default t)
+  (unless package-archive-contents
+    (package-refresh-contents))
+
+  ;; Initialize use-package on non-Linux platforms
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+
+  (require 'use-package)
+  (setq use-package-always-ensure t)
+
+  ;; (use-package auto-package-update
+  ;;   :custom
+  ;;   (auto-package-update-interval 7)
+  ;;   (auto-package-update-prompt-before-update t)
+  ;;   (auto-package-update-hide-results t)
+  ;;   :config
+  ;;   (auto-package-update-maybe)
+  ;;   (auto-package-update-at-time "09:00"))
+#+END_SRC
+* Defaults
+** No Littering!
+#+BEGIN_SRC emacs-lisp
+;; NOTE: If you want to move everything out of the ~/.emacs.d folder
+;; reliably, set `user-emacs-directory` before loading no-littering!
+;(setq user-emacs-directory "~/.cache/emacs")
+
+(use-package no-littering)
+
+;; no-littering doesn't set this by default so we must place
+;; auto save files in the same path as it uses for sessions
+(setq auto-save-file-name-transforms
+      `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 #+END_SRC
 
-** Use-Package Statistics
-This seems like a nice-to-have for finding bloat.
+** Emacs Defaults
 #+BEGIN_SRC emacs-lisp
-(setq use-package-compute-statistics t)
+  (use-package emacs
+    :init
+    (setq inhibit-startup-screen t
+          initial-scratch-message nil
+          sentence-end-double-space nil
+          ring-bell-function 'ignore
+          frame-resize-pixelwise t)
+    (setq user-full-name "Sean Brage"
+          user-mail-address "seanmbrage@me.com")
+
+
+    ;; utf-8 please and thanks
+    (set-charset-priority 'unicode)
+    (setq locale-coding-system 'utf-8
+          coding-system-for-read 'utf-8
+          coding-system-for-write 'utf-8)
+    (set-terminal-coding-system 'utf-8)
+    (set-keyboard-coding-system 'utf-8)
+    (set-selection-coding-system 'utf-8)
+    (prefer-coding-system 'utf-8)
+    (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
+
+    ;; Recent files -- yay!
+    (recentf-mode t)
+    (setq recentf-exclude `(,(expand-file-name "straight/build/" user-emacs-directory)
+                            ,(expand-file-name "eln-cache/" user-emacs-directory)
+                            ,(expand-file-name "etc/" user-emacs-directory)
+                            ,(expand-file-name "var/")))
+
+    ;; Don't keep a custom file, this just messes things up especially with VC
+    (setq custom-safe-themes t)
+    (setq enable-local-variables :all)
+
+    ;; follow symlinks
+    (setq vc-follow-symlinks t)
+
+    ;; clean UI
+    (when (window-system)
+      (tool-bar-mode -1)
+      (toggle-scroll-bar -1))
+
+    ;; winner mode for window layout management (YES)
+    (winner-mode t)
+
+    ;; highlight matching parens
+    (show-paren-mode t)
+
+    ;; autopairs
+    (electric-pair-mode +1)
+
+    ;; sshh
+    (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
+
+    ;; cleanup modeline
+    (display-time-mode -1)
+    (setq column-number-mode t)
+    (setq line-number-mode t)
+
+    ;; do some indentation normalization
+    (setq-default tab-width 2)
+    (setq-default indent-tabs-mode nil)
+    (setq-default tab-always-indent 'complete)
+    (electric-indent-mode 1)
+
+    ;; (global-display-line-numbers-mode 1)
+    ;; (add-hook 'prog-mode-hook (lambda () 
+    ;;   (setq display-line-numbers-type 'relative)))
+
+    (if (> (display-pixel-width) 2560)
+      (set-frame-font "JetBrains Mono-15")
+      (set-frame-font "JetBrains Mono-12"))
+  )
 #+END_SRC
 
-
-* Emacs
-** Defaults
-#+BEGIN_SRC emacs-lisp
-(use-package emacs
-  :init
-  (setq inhibit-startup-screen t
-        initial-scratch-message nil
-        sentence-end-double-space nil
-        ring-bell-function 'ignore
-        frame-resize-pixelwise t)
-  (setq user-full-name "Sean Brage"
-        user-mail-address "seanmbrage@me.com")
-        
-  (setq read-process-output-max (* 1024 1024))
-  
-  ;; utf-8 please and thanks
-  (set-charset-priority 'unicode)
-  (setq locale-coding-system 'utf-8
-        coding-system-for-read 'utf-8
-        coding-system-for-write 'utf-8)
-  (set-terminal-coding-system 'utf-8)
-  (set-keyboard-coding-system 'utf-8)
-  (set-selection-coding-system 'utf-8)
-  (prefer-coding-system 'utf-8)
-  (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
-
-  ;; Recent files -- yay!
-  (recentf-mode t)
-  (setq recentf-exclude `(,(expand-file-name "straight/build/" user-emacs-directory)
-                          ,(expand-file-name "eln-cache/" user-emacs-directory)
-                          ,(expand-file-name "etc/" user-emacs-directory)
-                          ,(expand-file-name "var/")))
-
-  ;; Don't keep a custom file, this just messes things up especially with VC
-  (setq custom-file (make-temp-file ""))
-  (setq custom-safe-themes t)
-  (setq enable-local-variables :all)
-
-  ;; No backup files!
-  (setq make-backup-files nil
-        auto-save-default nil
-        create-lockfiles nil)
-
-  ;; follow symlinks
-  (setq vc-follow-symlinks t)
-
-  ;; clean UI
-  (when (window-system)
-    (tool-bar-mode -1)
-    (toggle-scroll-bar -1))
-    
-  ;; winner mode for window layout management (YES)
-  (winner-mode t)
-
-  ;; highlight matching parens
-  (show-paren-mode t)
-
-  ;; autopairs
-  (electric-pair-mode +1)
-
-  ;; sshh
-  (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
-  
-  ;; cleanup modeline
-  (display-time-mode -1)
-  (setq column-number-mode t)
-  
-  ;; do some indentation normalization
-  (setq-default tab-width 2)
-  (setq-default indent-tabs-mode nil)
-  (setq-default tab-always-indent 'complete)
-  (electric-indent-mode 1)
-  
-  (global-display-line-numbers-mode 1)
-  (add-hook 'prog-mode-hook (lambda () 
-    (setq display-line-numbers-type 'relative)))
-
-  (add-hook 'org-mode-hook (lambda ()
-    (setq display-line-numbers-type 'relative)))
-
-  (if (> (display-pixel-width) 2560)
-    (set-frame-font "JetBrains Mono-14")
-    (set-frame-font "JetBrains Mono-11"))
-)
-
-
-#+END_SRC
 ** Mac-specific Configuration
 #+BEGIN_SRC emacs-lisp
 (use-package emacs
@@ -240,11 +185,7 @@ This seems like a nice-to-have for finding bloat.
   (when (eq system-type 'darwin)
     (setq mac-command-modifier 'super)
     (setq mac-option-modifier 'meta)
-    (setq mac-control-modifier 'control)
-    (global-set-key [(s c)] 'kill-ring-save)
-    (global-set-key [(s v)] 'yank)
-    (global-set-key [(s x)] 'kill-region)
-    (global-set-key [(s q)] 'kill-emacs)))
+    (setq mac-control-modifier 'control)))
 
 (use-package exec-path-from-shell
   :if (memq window-system '(mac ns))
@@ -261,67 +202,68 @@ This seems like a nice-to-have for finding bloat.
 )
 #+END_SRC
 
+#+END_SRC
 
 * Keybindings & Editing
 ** General
 #+BEGIN_SRC emacs-lisp
-(use-package general
-  :demand t
-  :config 
-  (general-evil-setup)
-  
-  (general-create-definer bg/leader-keys
-    :states '(normal insert visual emacs)
-    :keymaps 'override
-    :prefix "SPC"
-    :global-prefix "C-SPC")
+  (use-package general
+    :demand t
+    :config 
+    (general-evil-setup)
 
-  (general-create-definer bg/local-leader-keys
-    :states '(normal visual)
-    :keymaps 'override
-    :prefix ","
-    :global-prefix "SPC m")
+    (general-create-definer bg/leader-keys
+      :states '(normal insert visual emacs)
+      :keymaps 'override
+      :prefix "SPC"
+      :global-prefix "C-SPC")
 
-  (bg/leader-keys
-    "SPC" '(execute-extended-command :which-key "execute command")
-    "b" '(:ignore t :which-key "buffer")
-    "bb" 'ibuffer
-    "br" 'revert-buffer
-    "bd" 'kill-current-buffer
-    "bn" 'next-buffer
-    "bp" 'previous-buffer
+    (general-create-definer bg/local-leader-keys
+      :states '(normal visual)
+      :keymaps 'override
+      :prefix ","
+      :global-prefix "SPC m")
 
-    "c" '(:ignore t :which-key "code")
-    "d" '(:ignore t :whick-key "dired")
-    "dd" 'dired
-    "f" '(:ignore t :which-key "file")
-    "ff" 'find-file
-    "fs" 'save-buffer
-    "fr" 'recentf-open-files
-    
-    "p" '(:ignore t :which-key "project")
-    "pp" 'project-switch-project
-    "pf" 'project-find-file
-    "pg" 'project-find-regexp
-    
-    "w" '(:ignore t :whick-key "window")
-    "wl" 'windmove-right
-    "wh" 'windmove-left
-    "wj" 'windmove-down
-    "wk" 'windmove-up
-    "wr" 'winner-redo
-    "wd" 'delete-window
-    "w3" 'split-window-right
-    "w2" 'split-window-below
-    "w=" 'balance-windows-area
-    "wD" 'kill-buffer-and-window
-    "wu" 'winner-undo
-    "wr" 'winner-redo
-    "wm" '(delete-other-windows :wk "maximize")
+     (bg/leader-keys
+       "SPC" '(execute-extended-command :which-key "execute command")
+       "b" '(:ignore t :which-key "buffer")
+       "bb" 'ivy-switch-buffer
+       "br" 'revert-buffer
+       "bd" 'kill-current-buffer
+       "bn" 'next-buffer
+       "bp" 'previous-buffer
 
-    "l" '(:ignore t :which-key "lsp")
-    "gd" 'lsp-goto-type-definition
-    "gi" 'lsp-goto-implementation))
+       "c" '(:ignore t :which-key "code")
+       "d" '(:ignore t :whick-key "dired")
+       "dd" 'dired
+       "f" '(:ignore t :which-key "file")
+       "ff" 'find-file
+       "fs" 'save-buffer
+       "fr" 'recentf-open-files
+
+       "p" '(:ignore t :which-key "project")
+       "pp" 'project-switch-project
+       "pf" 'project-find-file
+       "pg" 'project-find-regexp
+
+       "w" '(:ignore t :whick-key "window")
+       "wl" 'windmove-right
+       "wh" 'windmove-left
+       "wj" 'windmove-down
+       "wk" 'windmove-up
+       "wr" 'winner-redo
+       "wd" 'delete-window
+       "w3" 'split-window-right
+       "w2" 'split-window-below
+       "w=" 'balance-windows-area
+       "wD" 'kill-buffer-and-window
+       "wu" 'winner-undo
+       "wr" 'winner-redo
+       "wm" '(delete-other-windows :wk "maximize")
+
+       "l" '(:ignore t :which-key "lsp")
+       "gd" 'lsp-goto-type-definition
+       "gi" 'lsp-goto-implementation))
 #+END_SRC
 
 ** EVIL
@@ -330,8 +272,8 @@ This seems like a nice-to-have for finding bloat.
     :demand
     :general
     (lc/leader-keys
-      "wv" 'evil-window-vsplit
-      "ws" 'evil-window-split)
+     "wv" 'evil-window-vsplit
+     "ws" 'evil-window-split)
     :init
     (setq evil-want-C-u-scroll t)
     (setq evil-want-C-i-jump nil)
@@ -339,6 +281,7 @@ This seems like a nice-to-have for finding bloat.
     (setq evil-undo-system 'undo-fu)
     (setq evil-split-window-below t)
     (setq evil-vsplit-window-right t)
+    (setq evil-auto-indent nil) ;; electric-indent-mode handles this just fine
     :config
     (setq-default display-line-numbers 'relative)
     (evil-mode 1))
@@ -347,34 +290,34 @@ This seems like a nice-to-have for finding bloat.
     :demand
     :init (setq-default evil-escape-key-sequence "jk")
     :config (evil-escape-mode 1))
-  
-;; (use-package evil-collection
-;;   :after evil
-;;   :demand
-;;   :init (setq evil-collection-magit-use-z-for-folds nil)
-;;   :config (evil-collection-init))
 
-  (use-package evil-goggles
-    :after evil
-    :demand
-    :init (setq evil-goggles-duration 0.05)
-    :config
-    (push '(evil-operator-eval
-            :face evil-goggles-yank-face
-            :switch evil-goggles-enable-yank
-            :advice evil-goggles--generic-async-advice)
-            evil-goggles--commands)
-    (evil-goggles-mode)
-    (evil-goggles-use-diff-faces))
+  ;; ;; (use-package evil-collection
+  ;; ;;   :after evil
+  ;; ;;   :demand
+  ;; ;;   :init (setq evil-collection-magit-use-z-for-folds nil)
+  ;; ;;   :config (evil-collection-init))
+
+  ;; (use-package evil-goggles
+  ;;    :after evil
+  ;;    :demand
+  ;;    :init (setq evil-goggles-duration 0.05)
+  ;;    :config
+  ;;    (push '(evil-operator-eval
+  ;;       :face evil-goggles-yank-face
+  ;;       :switch evil-goggles-enable-yank
+  ;;       :advice evil-goggles--generic-async-advice)
+  ;;       evil-goggles--commands)
+  ;;    (evil-goggles-mode)
+  ;;    (evil-goggles-use-diff-faces))
 
   (use-package evil-surround
     :general
     (:states 'operator
-      "s" 'evil-surround-edit
-      "S" 'evil-Surround-edit)
+             "s" 'evil-surround-edit
+             "S" 'evil-Surround-edit)
     (:states 'visual
-      "S" 'evil-surround-region
-      "gS" 'evil-Surround-region))
+             "S" 'evil-surround-region
+             "gS" 'evil-Surround-region))
 #+END_SRC
 
 ** Which-Key
@@ -387,22 +330,33 @@ This seems like a nice-to-have for finding bloat.
   :config (which-key-mode))
 #+END_SRC
 
-* UI Config
-** Modus Theme
-   A very nice theme, worth checking out by uncommenting this block
+** Hydra
+Emacs Hydra is a package for creating hydras - extensible, custom key chords.
 #+BEGIN_SRC emacs-lisp
-;; (use-package modus-themes
-;;   :demand
-;;   :init (modus-themes-load-themes)
-;;   :config (modus-themes-load-vivendi))
+  ;; (use-package hydra
+  ;;   :config
+  ;;   (defhydra hydra-file (global-map "C-c f")
+  ;;     "files"
+  ;;     ("f" find-file)
+  ;;     ("r" recentf-open-files)
+  ;;     ("s" save-buffer))
+  ;;   (defhydra hydra-buffer (global-map "C-c b")
+  ;;     "files"
+  ;;     ("n" next-buffer)
+  ;;     ("p" previous-buffer)
+  ;;     ("k" kill-buffer)
+  ;;     ("b" list-buffers))
+  ;;   (defhydra hydra-project (global-map "C-c p")
+  ;;     "projects"
+  ;;     ("p" project-switch-project)
+  ;;     ("f" project-find-file)
+  ;;     ("g" project-find-regexp)))
 #+END_SRC
-
-** Dracula Theme
-While I wait for Dracula Pro to support Emacs OOTB, doom-dracula is the NBT.
+* UI Config
+** UI Themes
 #+BEGIN_SRC emacs-lisp
-(use-package dracula-theme
-  :demand
-  :config (load-theme 'dracula t))
+  (use-package doom-themes
+    :config (load-theme 'doom-spacegrey t))
 #+END_SRC
 ** Modeline
 The modeline appears at the bottom of every Emacs window, and is full of helpful information.
@@ -433,20 +387,13 @@ There are a packages that can improve the display of the modeline, like doom-mod
     :hook ((prog-mode . rainbow-delimiters-mode)
               (conf-mode . rainbow-delimiters-mode)))
 ;; colorize nested brackets and parens, helpful to determine scope
-
-(use-package rainbow-mode
-    :hook ((prog-mode . rainbow-mode)
-              (conf-mode . rainbow-mode)
-              (css-mode  . rainbow-mode)
-              (web-mode  . rainbow-mode)))
-;; highlight color values i.e. hex codes with the actual color
 #+END_SRC
 
 * Core Packages
 ** Project
 Emacs built-in project management package. It rocks.
 #+BEGIN_SRC emacs-lisp
-(use-package project)
+(require 'project)
 #+END_SRC
 ** YA Snippet
 Configurable snippet expansion for common text snippets.
@@ -483,18 +430,27 @@ Helpful for quickly selecting with parens, brackets, etc.
 #+END_SRC
 
 ** Company
+Auto-completion frontend
 #+BEGIN_SRC emacs-lisp
-(use-package company
+  (use-package company
     :hook ((prog-mode . company-mode)
-              (conf-mode . company-mode)
-              (web-mode  . company-mode))
+           (conf-mode . company-mode)
+           (web-mode  . company-mode))
     :init
-    (setq company-idle-delay 0.1
-        company-minimum-prefix-length 2)
     (setq-default company-tooltip-align-annotations t)
     :config
+    (setq company-idle-delay 0.15
+          company-minimum-prefix-length 2)
+    (setq company-tooltip-limit 15)
+    (setq company-show-numbers t)
+    (setq company-require-match nil)
+    (setq company-selection-wrap-around t)
+    (setq company-dabbrev-ignore-case t)
     (setq company-dabbrev-downcase nil))
-;; awesome auto-completion
+    ;; awesome auto-completion
+
+  (use-package company-box
+    :hook (company-mode . company-box-mode))
 #+END_SRC
 
 ** Magit
@@ -505,72 +461,102 @@ Helpful for quickly selecting with parens, brackets, etc.
     (global-set-key (kbd "C-x g") 'magit))
 ;; oh baby. git has never been this fun to use.
 #+END_SRC
+
 * Programming
+** LSP
+LSP is an intellisense-like protocol providing IDE features to any editor capable of talking to a language server.
 #+BEGIN_SRC emacs-lisp
-(use-package add-node-modules-path
-    :hook ((js-mode . add-node-modules-path)
-              (typescript-mode . add-node-modules-path)))
+  (defun bg/lsp-mode-setup ()
+    (setq lsp-diagnostic-package 'flymake))
 
-(use-package editorconfig
+  ;; (defun bg/setup-lsp-company()
+  ;;   (setq-local company-backends
+  ;;               '(company-capf company-dabbrev company-dabbrev-code)))
+
+  ;; (use
+  (use-package lsp-mode
+      :init
+      (setq lsp-keymap-prefix "C-c l")  ;; Or 'C-l', 's-l'
+      :commands (lsp lsp-deferred)
+      :hook ((typescript-mode . lsp)
+                     (js-mode . lsp))
+      :config
+      (setq-default lsp-eslint-enabled nil)
+      (lsp-enable-which-key-integration t))
+#+END_SRC
+** General Programming Configuration
+#+BEGIN_SRC emacs-lisp
+  (use-package add-node-modules-path
+    :hook (
+           (bg-vue-mode . add-node-modules-path)
+           (js-mode . add-node-modules-path)
+           (typescript-mode . add-node-modules-path)))
+
+  (use-package editorconfig
     :config (editorconfig-mode 1))
-;; ensure editor settings are consistent between developers
+  ;; ensure editor settings are consistent between developers
 
-(use-package flycheck
-    :hook ((prog-mode . flycheck-mode)
-              (conf-mode . flycheck-mode)
-              (web-mode  . flycheck-mode)
-              (css-mode  . flycheck-mode))
-    :config
-    (add-to-list 'flycheck-enabled-checkers 'javascript-eslint)
-    (setq-default flycheck-emacs-lisp-load-path 'inherit)
-    (setq-default flycheck-highlighting-mode 'lines))
-;; check syntax!
-
-(defun bg-vue-mode-setup ()
+  ;; (use-package flycheck
+  ;;   :hook ((prog-mode . flycheck-mode)
+  ;;          (conf-mode . flycheck-mode)
+  ;;          (web-mode  . flycheck-mode)
+  ;;          (css-mode  . flycheck-mode))
+  ;;   :config
+  ;;   (add-to-list 'flycheck-enabled-checkers 'javascript-eslint)
+  ;;   (setq-default flycheck-emacs-lisp-load-path 'inherit)
+  ;;   (setq-default flycheck-highlighting-mode 'lines))
+  ;; ;; check syntax!
+#+END_SRC
+** VueJS
+#+BEGIN_SRC emacs-lisp
+  (defun bg-vue-mode-setup ()
     (superword-mode)
-    (subword-mode)
     (lsp)
-    (setq-default web-mode-script-padding 0)
-    (setq-default web-mode-style-padding 0)
-    (setq-default web-mode-markup-indent-offset 2)
-    (setq-default web-mode-css-indent-offset 2)
-    (setq-default web-mode-code-indent-offset 2))
+    (subword-mode)
+    (setq web-mode-script-padding 0)
+    (setq web-mode-style-padding 0)
+    (setq web-mode-markup-indent-offset 2)
+    (setq web-mode-css-indent-offset 2)
+    (setq web-mode-code-indent-offset 2))
 
-(define-derived-mode bg-vue-mode web-mode "bg-vue-mode"
+  (define-derived-mode bg-vue-mode web-mode "bg-vue-mode"
     "Major mode derived from web-mode, tailored for VueJS development")
-(add-to-list 'auto-mode-alist '("\\.vue\\'" . bg-vue-mode))
-(add-hook 'bg-vue-mode-hook #'add-node-modules-path)
-(add-hook 'bg-vue-mode-hook #'bg-vue-mode-setup)
-;; configuration to make web-mode play better with .vue files
+  (add-to-list 'auto-mode-alist '("\\.vue\\'" . bg-vue-mode))
+  (add-hook 'bg-vue-mode-hook #'add-node-modules-path)
+  (add-hook 'bg-vue-mode-hook #'bg-vue-mode-setup)
+  ;; configuration to make web-mode play better with .vue files
 
-(use-package web-mode
+  (use-package web-mode
     :mode (("\\.html\\'" . web-mode)
-              ("\\.hbs\\'" . web-mode)
-              ("\\.erb\\'" . web-mode)))
-;; all the html, hbs, ejs, erb, vue, etc.
+           ("\\.hbs\\'" . web-mode)
+           ("\\.erb\\'" . web-mode)))
+  ;; all the html, hbs, ejs, erb, vue, etc.
 
-(use-package prettier
+  (use-package prettier
     :hook ((bg-vue-mode . prettier-mode)
-              (typescript-mode . prettier-mode)
-              (js-mode . prettier-mode)))
+           (typescript-mode . prettier-mode)
+           (js-mode . prettier-mode)))
 
-(use-package emmet-mode
+  (use-package emmet-mode
     :hook web-mode)
-;; expand html elements
+  ;; expand html elements
 
-(use-package scss-mode
+  (use-package json-mode
+    :mode "\\.json\\'")
+
+  (use-package scss-mode
     :mode "\\.scss\\'")
-;; make sass more better
+  ;; make sass more better
 
-(use-package go-mode
+  (use-package go-mode
     :mode "\\.go\\'")
 
-(use-package yaml-mode
+  (use-package yaml-mode
     :mode "\\.yml\\'")
 
-(use-package markdown-mode
+  (use-package markdown-mode
     :mode (("\\.markdown\\'" . markdown-mode)
-              ("\\.md\\'" . markdown-mode)))
+           ("\\.md\\'" . markdown-mode)))
 #+END_SRC
 
 ** TypeScript
@@ -579,17 +565,3 @@ Helpful for quickly selecting with parens, brackets, etc.
   :mode "\\.ts\\'")
 #+END_SRC
 
-** LSP
-#+BEGIN_SRC emacs-lisp
-(use-package lsp-mode
-  :init
-  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
-  (setq lsp-keymap-prefix "C-c l")
-  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-         (bg-vue-mode . lsp)
-         (typescript-mode . lsp)
-         (js-mode . lsp)
-         ;; if you want which-key integration
-         (lsp-mode . lsp-enable-which-key-integration))
-  :commands lsp)
-#+END_SRC
