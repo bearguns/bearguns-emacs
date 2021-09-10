@@ -34,27 +34,6 @@ Sure! There are more than likely features and settings in this file
 that are specific to my system(s), but this is a great place to start
 learning about configuring Emacs to be your very own lifelong editor.
 
-** About this config
-This file is mostly organized by the logical flow of Emacs' startup
-cycle, and my own wants/needs as someone who uses Emacs primarily for
-coding at my day job.
-
-- Section 1 is about configuring sane defaults and startup
-  optimizations to make sure Emacs performance is closer to the "sweet
-  spot". This is a collection of optimizations that other, braver
-  souls have gone before to discover and distribute.
-- Section 2 deals with package management, setting up the platform to
-  install and configure external packages later on.
-- Section 3 deals with built-in Emacs configuration, getting the base
-  program to behave (mostly) the way I would like.
-- Section 4 sets up Evil, and our collection of Vim-spired keybindings
-  for editing text and manipulating Emacs.
-- Section 5 configures org-mode for managing tasks, notes, and files
-  like this one.
-- Sections 6 and beyond configure various packages and workflows for
-  setting a nice UI and workflow in Emacs.
-
-
 * Startup
 ** early-init.el
 [[https://luca.cambiaghi.me/vanilla-emacs/readme.html#h:D9ED3ADB-810A-4A1C-A1D3-5397874AFAC7][Thanks to Luca Cambiaghi for a lot of this section]]
@@ -77,44 +56,53 @@ coding at my day job.
 (setq use-file-dialog nil)
 #+END_SRC
 
-
 * Package Management
-** Bootstrap Straight & Straight-Use-Package
-Straight seems to be the (relative to Emacs) new kid on the block for
-managing packages. Rather than fetching from ELPA/MELPA it gets
-packages "straight" from the source on Github etc. This is an
-experiment for me, but I'm hoping the payoff will...exist?
-
+** Use-Package
 #+BEGIN_SRC emacs-lisp
-  (eval-when-compile
-    ;; Following line is not needed if use-package.el is in ~/.emacs.d
-    (setq straight-check-for-modifications '(check-on-save find-when-checking))
-    (defvar bootstrap-version)
-    (let ((bootstrap-file
-	   (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-	  (bootstrap-version 5))
-      (unless (file-exists-p bootstrap-file)
-	(with-current-buffer
-	    (url-retrieve-synchronously
-	     "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-	     'silent 'inhibit-cookies)
-	  (goto-char (point-max))
-	  (eval-print-last-sexp)))
-      (load bootstrap-file nil 'nomessage)))
+  ;; Initialize package sources
+  (require 'package)
+  (add-to-list 'package-archives
+         '("melpa" . "https://melpa.org/packages/") t)
+  (add-to-list 'package-archives
+             '("GNU ELPA" . "https://elpa.gnu.org/packages/"))
+  (package-initialize)
 
-  (straight-use-package 'use-package)
-  (setq straight-use-package-by-default t)
+  (unless package-archive-contents
+    (package-refresh-contents))
+
+  ;; Initialize use-package on non-Linux platforms
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+
+  (require 'use-package)
+  (setq use-package-always-ensure t)
+
+  ;; (use-package auto-package-update
+  ;;   :custom
+  ;;   (auto-package-update-interval 7)
+  ;;   (auto-package-update-prompt-before-update t)
+  ;;   (auto-package-update-hide-results t)
+  ;;   :config
+  ;;   (auto-package-update-maybe)
+  ;;   (auto-package-update-at-time "09:00"))
+#+END_SRC
+* Defaults
+** No Littering!
+#+BEGIN_SRC emacs-lisp
+;; NOTE: If you want to move everything out of the ~/.emacs.d folder
+;; reliably, set `user-emacs-directory` before loading no-littering!
+;(setq user-emacs-directory "~/.cache/emacs")
+
+(use-package no-littering)
+
+;; no-littering doesn't set this by default so we must place
+;; auto save files in the same path as it uses for sessions
+(setq auto-save-file-name-transforms
+      `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 #+END_SRC
 
-** Use-Package Statistics
-This seems like a nice-to-have for finding bloat.
-#+BEGIN_SRC emacs-lisp
-(setq use-package-compute-statistics t)
-#+END_SRC
-
-
-* Emacs
-** Defaults
+** Emacs Defaults
 #+BEGIN_SRC emacs-lisp
   (use-package emacs
     :init
@@ -126,7 +114,6 @@ This seems like a nice-to-have for finding bloat.
     (setq user-full-name "Sean Brage"
           user-mail-address "seanmbrage@me.com")
 
-    (setq read-process-output-max (* 1024 1024))
 
     ;; utf-8 please and thanks
     (set-charset-priority 'unicode)
@@ -147,14 +134,8 @@ This seems like a nice-to-have for finding bloat.
                             ,(expand-file-name "var/")))
 
     ;; Don't keep a custom file, this just messes things up especially with VC
-    (setq custom-file (make-temp-file ""))
     (setq custom-safe-themes t)
     (setq enable-local-variables :all)
-
-    ;; No backup files!
-    (setq make-backup-files nil
-          auto-save-default nil
-          create-lockfiles nil)
 
     ;; follow symlinks
     (setq vc-follow-symlinks t)
@@ -196,6 +177,7 @@ This seems like a nice-to-have for finding bloat.
       (set-frame-font "JetBrains Mono-12"))
   )
 #+END_SRC
+
 ** Mac-specific Configuration
 #+BEGIN_SRC emacs-lisp
 (use-package emacs
@@ -218,6 +200,8 @@ This seems like a nice-to-have for finding bloat.
   (setq ns-use-proxy-icon  nil)
   (setq frame-title-format nil)
 )
+#+END_SRC
+
 #+END_SRC
 
 * Keybindings & Editing
@@ -369,9 +353,10 @@ Emacs Hydra is a package for creating hydras - extensible, custom key chords.
   ;;     ("g" project-find-regexp)))
 #+END_SRC
 * UI Config
+** UI Themes
 #+BEGIN_SRC emacs-lisp
-  (use-package gruvbox-theme
-    :config (load-theme 'gruvbox t))
+  (use-package doom-themes
+    :config (load-theme 'doom-spacegrey t))
 #+END_SRC
 ** Modeline
 The modeline appears at the bottom of every Emacs window, and is full of helpful information.
@@ -402,21 +387,13 @@ There are a packages that can improve the display of the modeline, like doom-mod
     :hook ((prog-mode . rainbow-delimiters-mode)
               (conf-mode . rainbow-delimiters-mode)))
 ;; colorize nested brackets and parens, helpful to determine scope
-
-(use-package rainbow-mode
-    :hook ((prog-mode . rainbow-mode)
-              (conf-mode . rainbow-mode)
-              (css-mode  . rainbow-mode)
-              (web-mode  . rainbow-mode)))
-;; highlight color values i.e. hex codes with the actual color
 #+END_SRC
-
 
 * Core Packages
 ** Project
 Emacs built-in project management package. It rocks.
 #+BEGIN_SRC emacs-lisp
-(use-package project)
+(require 'project)
 #+END_SRC
 ** YA Snippet
 Configurable snippet expansion for common text snippets.
@@ -453,18 +430,27 @@ Helpful for quickly selecting with parens, brackets, etc.
 #+END_SRC
 
 ** Company
+Auto-completion frontend
 #+BEGIN_SRC emacs-lisp
-(use-package company
+  (use-package company
     :hook ((prog-mode . company-mode)
-              (conf-mode . company-mode)
-              (web-mode  . company-mode))
+           (conf-mode . company-mode)
+           (web-mode  . company-mode))
     :init
-    (setq company-idle-delay 0.1
-        company-minimum-prefix-length 2)
     (setq-default company-tooltip-align-annotations t)
     :config
+    (setq company-idle-delay 0.15
+          company-minimum-prefix-length 2)
+    (setq company-tooltip-limit 15)
+    (setq company-show-numbers t)
+    (setq company-require-match nil)
+    (setq company-selection-wrap-around t)
+    (setq company-dabbrev-ignore-case t)
     (setq company-dabbrev-downcase nil))
-;; awesome auto-completion
+    ;; awesome auto-completion
+
+  (use-package company-box
+    :hook (company-mode . company-box-mode))
 #+END_SRC
 
 ** Magit
@@ -477,32 +463,56 @@ Helpful for quickly selecting with parens, brackets, etc.
 #+END_SRC
 
 * Programming
+** LSP
+LSP is an intellisense-like protocol providing IDE features to any editor capable of talking to a language server.
+#+BEGIN_SRC emacs-lisp
+  (defun bg/lsp-mode-setup ()
+    (setq lsp-diagnostic-package 'flymake))
+
+  ;; (defun bg/setup-lsp-company()
+  ;;   (setq-local company-backends
+  ;;               '(company-capf company-dabbrev company-dabbrev-code)))
+
+  ;; (use
+  (use-package lsp-mode
+      :init
+      (setq lsp-keymap-prefix "C-c l")  ;; Or 'C-l', 's-l'
+      :commands (lsp lsp-deferred)
+      :hook ((typescript-mode . lsp)
+                     (js-mode . lsp))
+      :config
+      (setq-default lsp-eslint-enabled nil)
+      (lsp-enable-which-key-integration t))
+#+END_SRC
+** General Programming Configuration
 #+BEGIN_SRC emacs-lisp
   (use-package add-node-modules-path
     :hook (
-    (bg-vue-mode . add-node-modules-path)
-    (js-mode . add-node-modules-path)
-    (typescript-mode . add-node-modules-path)))
+           (bg-vue-mode . add-node-modules-path)
+           (js-mode . add-node-modules-path)
+           (typescript-mode . add-node-modules-path)))
 
   (use-package editorconfig
     :config (editorconfig-mode 1))
   ;; ensure editor settings are consistent between developers
 
-  (use-package flycheck
-    :hook ((prog-mode . flycheck-mode)
-           (conf-mode . flycheck-mode)
-           (web-mode  . flycheck-mode)
-           (css-mode  . flycheck-mode))
-    :config
-    (add-to-list 'flycheck-enabled-checkers 'javascript-eslint)
-    (setq-default flycheck-emacs-lisp-load-path 'inherit)
-    (setq-default flycheck-highlighting-mode 'lines))
-  ;; check syntax!
-
+  ;; (use-package flycheck
+  ;;   :hook ((prog-mode . flycheck-mode)
+  ;;          (conf-mode . flycheck-mode)
+  ;;          (web-mode  . flycheck-mode)
+  ;;          (css-mode  . flycheck-mode))
+  ;;   :config
+  ;;   (add-to-list 'flycheck-enabled-checkers 'javascript-eslint)
+  ;;   (setq-default flycheck-emacs-lisp-load-path 'inherit)
+  ;;   (setq-default flycheck-highlighting-mode 'lines))
+  ;; ;; check syntax!
+#+END_SRC
+** VueJS
+#+BEGIN_SRC emacs-lisp
   (defun bg-vue-mode-setup ()
     (superword-mode)
+    (lsp)
     (subword-mode)
-    (eglot)
     (setq web-mode-script-padding 0)
     (setq web-mode-style-padding 0)
     (setq web-mode-markup-indent-offset 2)
@@ -555,12 +565,3 @@ Helpful for quickly selecting with parens, brackets, etc.
   :mode "\\.ts\\'")
 #+END_SRC
 
-** LSP
-#+BEGIN_SRC emacs-lisp
-(use-package eglot
-  :init
-  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-         (bg-vue-mode . eglot-ensure)
-         (typescript-mode . eglot-ensure)
-         (js-mode . eglot-ensure)))
-#+END_SRC
